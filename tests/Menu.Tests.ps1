@@ -19,7 +19,7 @@ $entry = Join-Path $root 'Start-DevSetup.ps1'
 & {
     . $entry -Action List -DryRun 6>$null
     $script:Selections = New-Object 'System.Collections.Generic.Queue[string]'
-    foreach ($choice in @('1', '0', '2', '3', '0', '4', '0', '0', '3', '0', '4', '0', '5', '0', '0')) {
+    foreach ($choice in @('1', '0', '2', '3', '0', '5', '0', '0', '3', '0', '4', '0', '5', '0', '0')) {
         $script:Selections.Enqueue($choice)
     }
     function Read-Host { param([string]$Prompt) return $script:Selections.Dequeue() }

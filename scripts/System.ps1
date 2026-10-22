@@ -52,10 +52,66 @@ function Set-FileExtensionDisplay {
     Write-Host $label
     if (-not (Confirm-Selection)) { return }
     if ($script:DryRunEnabled) { Write-Status "[预演] $label"; return }
-    $value = if ($Visible) { 0 } else { 1 }
-    [void](New-ItemProperty -LiteralPath 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced' -Name HideFileExt -PropertyType DWord -Value $value -Force)
+    $setting = $script:TweakCatalog | Where-Object { $_.id -eq 'ShowFileExtensions' } | Select-Object *
+    $setting.value = if ($Visible) { 0 } else { 1 }
+    Set-SystemTweak $setting
     Write-Status '设置已保存，重新登录后生效。'
     Write-Result $label $true
+}
+
+function Set-SystemTweak {
+    param([object]$Setting)
+    $value = switch ($Setting.type) {
+        'Binary' { ,([byte[]]$Setting.value) }
+        'DWord' { [int]$Setting.value }
+        'String' { [string]$Setting.value }
+    }
+    $detail = '{0}\{1} = {2} ({3})' -f $Setting.path, $Setting.valueName, ($value -join ','), $Setting.type
+    if ($script:DryRunEnabled) { Write-Status "[预演] $detail"; return }
+    Write-Status $detail -LogOnly
+    if (-not (Test-Path -LiteralPath $Setting.path)) { [void](New-Item -Path $Setting.path -Force) }
+    [void](New-ItemProperty -LiteralPath $Setting.path -Name $Setting.valueName -PropertyType $Setting.type -Value $value -Force)
+}
+
+function Invoke-SystemOptimization {
+    param([switch]$Full, [switch]$MachineOnly)
+    $settings = @($script:TweakCatalog | Where-Object { $Full -or $_.recommended })
+    if ($MachineOnly) { $settings = @($settings | Where-Object { $_.path -like 'HKLM:*' }) }
+    if ($MachineOnly) { Write-Host '正在应用需要管理员权限的系统配置。' }
+    else {
+        Write-Host '将统一应用以下设置：'
+        Write-Host '  文件管理器：显示文件扩展名、隐藏文件和完整路径，默认打开此电脑，关闭最近记录和推荐。'
+        Write-Host '  任务栏与搜索：启用右键结束任务，关闭网络搜索、推荐内容和小组件。'
+        Write-Host '  Edge：使用空白新标签页，关闭首次运行引导。'
+        Write-Host '  系统：启用长路径支持。'
+    }
+    if ($Full) {
+        Write-Host '完整配置还会启用 Sudo、开发者模式和远程桌面，关闭所有弹出通知并隐藏蓝牙图标。' -ForegroundColor Yellow
+        Write-Host '远程桌面需要支持该功能的 Windows 版本，并单独允许防火墙连接。'
+        if (-not $script:DryRunEnabled) {
+            if (-not (Test-Path (Join-Path $env:SystemRoot 'System32/sudo.exe'))) { throw '当前系统没有 Windows Sudo，无法应用完整配置。' }
+            $edition = Get-ItemPropertyValue -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion' -Name EditionID
+            if ($edition -like 'Core*') { throw 'Windows 家庭版不支持作为远程桌面被控端，无法应用完整配置。' }
+        }
+    }
+    if (-not (Confirm-Selection)) { return }
+    if (-not $script:DryRunEnabled -and -not (Test-Administrator)) {
+        Write-Status '系统优化需要管理员权限，请在 Windows 提示中允许执行。'
+        $shell = (Get-Process -Id $PID).Path
+        $arguments = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"{0}"' -f (Join-Path $script:ProjectRoot 'Start-DevSetup.ps1')), '-Action', 'Optimize', '-Yes', '-MachineOnly')
+        if ($Full) { $arguments += '-FullOptimization' }
+        $process = Start-Process -FilePath $shell -ArgumentList $arguments -Verb RunAs -Wait -PassThru
+        if ($process.ExitCode -ne 0) { throw "管理员进程未完成系统配置，退出代码：$($process.ExitCode)。" }
+        foreach ($setting in @($settings | Where-Object { $_.path -like 'HKLM:*' })) { Write-Result $setting.name $true }
+        # 提升权限时可以使用另一管理员账户，当前用户的设置由原进程写入。
+        $settings = @($settings | Where-Object { $_.path -like 'HKCU:*' })
+    }
+    foreach ($setting in $settings) {
+        Write-Status $setting.name
+        Set-SystemTweak $setting
+        Write-Result $setting.name $true
+    }
+    Write-Status '配置已保存，部分设置需要重新登录或重启 Windows 后生效。'
 }
 
 function Show-ActivationMenu {
@@ -117,12 +173,13 @@ function Show-SystemMenu {
         Write-Host "`n1. 安装之前备份的驱动"
         Write-Host '2. 打开 Windows 更新'
         Write-Host '3. Windows 激活'
-        Write-Host '4. 常用设置（文件扩展名、任务栏、电源等）'
-        Write-Host '5. 查看电脑信息'
+        Write-Host '4. 应用推荐系统优化'
+        Write-Host '5. 常用设置（文件扩展名、任务栏、电源等）'
+        Write-Host '6. 查看电脑信息'
         Write-Host "`n0. 返回主菜单"
-        $choice = Read-MenuChoice -Count 5
+        $choice = Read-MenuChoice -Count 6
         if ($choice -eq '0') { return }
-        if ($choice -in @('1', '2', '5')) { Show-Page '安装后设置' }
+        if ($choice -in @('1', '2', '4', '6')) { Show-Page '安装后设置' }
         $before = @($script:Succeeded, $script:Skipped, $script:Failed)
         $logCount = $script:LogLines.Count
         switch ($choice) {
@@ -132,10 +189,11 @@ function Show-SystemMenu {
             }
             '2' { Open-SetupPage 'Windows 更新' 'ms-settings:windowsupdate' }
             '3' { Show-ActivationMenu }
-            '4' { Show-SettingsMenu }
-            '5' { Show-SetupComputer }
+            '4' { Invoke-SystemOptimization }
+            '5' { Show-SettingsMenu }
+            '6' { Show-SetupComputer }
         }
-        if ($choice -in @('1', '2', '5') -and $script:LogLines.Count -gt $logCount) {
+        if ($choice -in @('1', '2', '4', '6') -and $script:LogLines.Count -gt $logCount) {
             Show-Summary -Succeeded ($script:Succeeded - $before[0]) -Skipped ($script:Skipped - $before[1]) -Failed ($script:Failed - $before[2])
             Wait-ForMenu
         }

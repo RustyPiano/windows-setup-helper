@@ -1,0 +1,117 @@
+[
+  {
+    "id": "Sudo", "name": "启用 Sudo", "recommended": false,
+    "path": "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Sudo",
+    "valueName": "Enabled", "type": "DWord", "value": 3
+  },
+  {
+    "id": "DeveloperMode", "name": "启用开发者模式", "recommended": false,
+    "path": "HKLM:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\AppModelUnlock",
+    "valueName": "AllowDevelopmentWithoutDevLicense", "type": "DWord", "value": 1
+  },
+  {
+    "id": "LongPaths", "name": "启用长路径支持", "recommended": true,
+    "path": "HKLM:\\SYSTEM\\CurrentControlSet\\Control\\FileSystem",
+    "valueName": "LongPathsEnabled", "type": "DWord", "value": 1
+  },
+  {
+    "id": "RemoteDesktop", "name": "启用远程桌面", "recommended": false,
+    "path": "HKLM:\\SYSTEM\\CurrentControlSet\\Control\\Terminal Server",
+    "valueName": "fDenyTSConnections", "type": "DWord", "value": 0
+  },
+  {
+    "id": "ShowFileExtensions", "name": "显示文件扩展名", "recommended": true,
+    "path": "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+    "valueName": "HideFileExt", "type": "DWord", "value": 0
+  },
+  {
+    "id": "ShowHiddenFiles", "name": "显示隐藏文件", "recommended": true,
+    "path": "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+    "valueName": "Hidden", "type": "DWord", "value": 1
+  },
+  {
+    "id": "FullPathTitlebar", "name": "在文件管理器标题栏显示完整路径", "recommended": true,
+    "path": "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\CabinetState",
+    "valueName": "FullPath", "type": "DWord", "value": 1
+  },
+  {
+    "id": "OpenThisPC", "name": "文件管理器默认打开此电脑", "recommended": true,
+    "path": "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+    "valueName": "LaunchTo", "type": "DWord", "value": 1
+  },
+  {
+    "id": "FrequentFolders", "name": "关闭常用文件夹记录", "recommended": true,
+    "path": "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer",
+    "valueName": "ShowFrequent", "type": "DWord", "value": 0
+  },
+  {
+    "id": "FrequentFiles", "name": "关闭最近文件记录", "recommended": true,
+    "path": "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer",
+    "valueName": "ShowRecent", "type": "DWord", "value": 0
+  },
+  {
+    "id": "RecommendedFiles", "name": "关闭文件管理器推荐内容", "recommended": true,
+    "path": "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer",
+    "valueName": "ShowCloudFilesInQuickAccess", "type": "DWord", "value": 0
+  },
+  {
+    "id": "TipsOff", "name": "关闭文件管理器推广提示", "recommended": true,
+    "path": "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+    "valueName": "ShowSyncProviderNotifications", "type": "DWord", "value": 0
+  },
+  {
+    "id": "DetailsContainer", "name": "设置文件管理器详细信息窗格", "recommended": true,
+    "path": "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Modules\\GlobalSettings\\DetailsContainer",
+    "valueName": "DetailsContainer", "type": "Binary", "value": [1, 0, 0, 0, 2, 0, 0, 0]
+  },
+  {
+    "id": "DoNotDisturb", "name": "关闭所有弹出通知", "recommended": false,
+    "path": "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Notifications\\Settings",
+    "valueName": "NOC_GLOBAL_SETTING_TOASTS_ENABLED", "type": "DWord", "value": 0
+  },
+  {
+    "id": "BluetoothOff", "name": "隐藏任务栏蓝牙图标", "recommended": false,
+    "path": "HKCU:\\Control Panel\\Bluetooth",
+    "valueName": "Notification Area Icon", "type": "DWord", "value": 0
+  },
+  {
+    "id": "EndTask", "name": "启用任务栏右键结束任务", "recommended": true,
+    "path": "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced\\TaskbarDeveloperSettings",
+    "valueName": "TaskbarEndTask", "type": "DWord", "value": 1
+  },
+  {
+    "id": "WebSearchOff", "name": "关闭开始菜单中的网络搜索", "recommended": true,
+    "path": "HKCU:\\SOFTWARE\\Policies\\Microsoft\\Windows\\Explorer",
+    "valueName": "DisableSearchBoxSuggestions", "type": "DWord", "value": 1
+  },
+  {
+    "id": "SearchHighlightOff", "name": "关闭搜索亮点", "recommended": true,
+    "path": "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\SearchSettings",
+    "valueName": "IsDynamicSearchBoxEnabled", "type": "DWord", "value": 0
+  },
+  {
+    "id": "StartRecommendations", "name": "关闭开始菜单推荐内容", "recommended": true,
+    "path": "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+    "valueName": "Start_IrisRecommendations", "type": "DWord", "value": 0
+  },
+  {
+    "id": "StartAccountNotifications", "name": "关闭开始菜单账户通知", "recommended": true,
+    "path": "HKCU:\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Advanced",
+    "valueName": "Start_AccountNotifications", "type": "DWord", "value": 0
+  },
+  {
+    "id": "WidgetServiceOff", "name": "关闭小组件", "recommended": true,
+    "path": "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Dsh",
+    "valueName": "AllowNewsAndInterests", "type": "DWord", "value": 0
+  },
+  {
+    "id": "EdgeNewTab", "name": "将 Edge 新标签页设为空白页", "recommended": true,
+    "path": "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Edge",
+    "valueName": "NewTabPageLocation", "type": "String", "value": "about:blank"
+  },
+  {
+    "id": "EdgeOOBE", "name": "关闭 Edge 首次运行引导", "recommended": true,
+    "path": "HKLM:\\SOFTWARE\\Policies\\Microsoft\\Edge",
+    "valueName": "HideFirstRunExperience", "type": "DWord", "value": 1
+  }
+]

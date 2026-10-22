@@ -47,7 +47,13 @@ Windows 装机助手
 
 ## 安装后设置
 
-提供电脑信息、备份驱动安装、Windows 更新、激活状态、激活工具、文件扩展名显示，以及任务栏、启动应用、电源和默认应用设置入口。
+提供电脑信息、备份驱动安装、Windows 更新、激活、推荐系统优化，以及任务栏、启动应用、电源和默认应用设置入口。
+
+选择“安装后设置 → 应用推荐系统优化”，统一确认一次即可应用 18 项设置，需要管理员权限时会出现 Windows 授权提示。
+
+推荐配置显示文件扩展名、隐藏文件和完整路径，默认打开“此电脑”，关闭最近文件、常用文件夹记录以及文件管理器的推荐和推广提示，设置详细信息窗格；启用任务栏右键“结束任务”，关闭网络搜索、搜索亮点、开始菜单推荐、账户通知和小组件；将 Edge 新标签页设为空白页并关闭首次运行引导；启用长路径支持。
+
+原版四类系统配置共 23 项，保存在 [`data/tweaks.json`](data/tweaks.json)。完整配置还包含 Sudo、开发者模式、远程桌面、关闭全部弹出通知和隐藏蓝牙图标，通过命令行的 `-FullOptimization` 启用。Sudo 需要系统提供 Windows Sudo，家庭版无法作为远程桌面被控端；远程桌面配置保留原版行为，防火墙需要单独允许连接。
 
 激活入口使用以下命令，在独立 PowerShell 窗口中启动第三方 Microsoft Activation Scripts，由用户在其菜单中选择具体操作。退出后读取 Windows 激活状态。
 
@@ -55,7 +61,7 @@ Windows 装机助手
 irm https://get.activated.win | iex
 ```
 
-文件扩展名设置写入当前用户配置，重新登录后生效。其余 Windows 设置通过对应的系统设置页面调整。
+部分优化需要重新登录或重启 Windows 后生效。常用设置菜单保留文件扩展名开关，以及任务栏、启动应用、电源和默认应用设置页面。
 
 ## 软件清单
 
@@ -89,6 +95,8 @@ irm https://get.activated.win | iex
 ```powershell
 .\Start-DevSetup.ps1 -Action Prepare
 .\Start-DevSetup.ps1 -Action System
+.\Start-DevSetup.ps1 -Action Optimize
+.\Start-DevSetup.ps1 -Action Optimize -FullOptimization -DryRun -Yes
 .\Start-DevSetup.ps1 -Action AppList
 .\Start-DevSetup.ps1 -Action Apps -PackageIds Tencent.WeChat,VideoLAN.VLC -Yes
 .\Start-DevSetup.ps1 -Action List
@@ -114,12 +122,13 @@ python3 scripts/build-hosting.py
 .\tests\Setup.Tests.ps1
 .\tests\Dialogs.Tests.ps1
 .\tests\Menu.Tests.ps1
+.\tests\Optimization.Tests.ps1
 .\tests\Bootstrap.Tests.ps1
 ```
 
 GitHub Actions 在 Windows PowerShell 5.1 与 PowerShell 7 上验证清单、预演、配置读写、日志、备份、窗口选择、发布压缩包和启动流程。`tests/Online.Tests.ps1` 验证公开启动命令，在 Actions 页面手动运行工作流时执行；域名和托管生效后可运行此项。`tests/Downloads.Tests.ps1` 实际下载三个官方工具并校验文件。测试使用独立目录和样例程序验证调用，真实激活和启动盘写入由用户在工具中操作。
 
-装机准备在 `scripts/Preparation.ps1`，安装后配置在 `scripts/System.ps1`，软件安装和镜像配置在 `Start-DevSetup.ps1`。
+装机准备在 `scripts/Preparation.ps1`，安装后设置和系统优化在 `scripts/System.ps1`，软件安装和镜像配置在 `Start-DevSetup.ps1`。系统优化测试逐项核对微软原脚本，并在独立测试注册表目录中验证写入。
 
 ## Vercel 托管
 
@@ -135,6 +144,7 @@ GitHub Actions 在 Windows PowerShell 5.1 与 PowerShell 7 上验证清单、预
 
 ## 来源
 
+- [Microsoft WindowsDeveloperConfig 系统配置](https://github.com/microsoft/WindowsDeveloperConfig/tree/fe21c03a486a1076c425720c1ebe4e25404e0e6b/windows-dev-config/steps)：系统、文件管理器、任务栏与搜索、Edge 配置，MIT License。
 - [微软 Windows 11 下载](https://www.microsoft.com/zh-cn/software-download/windows11)
 - [Rufus](https://rufus.ie/zh/)、[Ventoy](https://www.ventoy.net/cn/doc_start.html)
 - [Microsoft Activation Scripts](https://get.activated.win)

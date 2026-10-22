@@ -1,6 +1,6 @@
 ﻿[CmdletBinding()]
 param(
-    [ValidateSet('Menu', 'List', 'Install', 'Mirrors', 'Restore', 'Prepare', 'System', 'Apps', 'AppList')]
+    [ValidateSet('Menu', 'List', 'Install', 'Mirrors', 'Restore', 'Prepare', 'System', 'Apps', 'AppList', 'Optimize')]
     [string]$Action = 'Menu',
 
     [string[]]$PackageIds = @(),
@@ -10,7 +10,9 @@ param(
     [string]$Mirror = 'Auto',
 
     [switch]$DryRun,
-    [switch]$Yes
+    [switch]$Yes,
+    [switch]$FullOptimization,
+    [Parameter(DontShow)][switch]$MachineOnly
 )
 
 Set-StrictMode -Version Latest
@@ -18,6 +20,7 @@ $ErrorActionPreference = 'Stop'
 
 $script:PackageCatalog = Get-Content (Join-Path $PSScriptRoot 'data/packages.json') -Raw -Encoding UTF8 | ConvertFrom-Json
 $script:AppCatalog = Get-Content (Join-Path $PSScriptRoot 'data/apps.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+$script:TweakCatalog = Get-Content (Join-Path $PSScriptRoot 'data/tweaks.json') -Raw -Encoding UTF8 | ConvertFrom-Json
 $script:ProjectRoot = $PSScriptRoot
 $script:SetupFolder = ''
 . (Join-Path $PSScriptRoot 'scripts/Preparation.ps1')
@@ -587,11 +590,13 @@ if (-not $script:DryRunEnabled -and $env:OS -ne 'Windows_NT') {
 
 $completed = $false
 try {
+    if (($FullOptimization -or $MachineOnly) -and $Action -ne 'Optimize') { throw '优化参数需要与 -Action Optimize 一起使用。' }
     switch ($Action) {
         'List' { Show-Packages -Detailed }
         'AppList' { Show-Packages $script:AppCatalog -Detailed }
         'Prepare' { Show-PreparationMenu }
         'System' { Show-SystemMenu }
+        'Optimize' { Invoke-SystemOptimization -Full:$FullOptimization -MachineOnly:$MachineOnly }
         'Apps' {
             if ($PackageIds.Count -gt 0) { Install-Packages @(Get-RequestedPackages $PackageIds $script:AppCatalog) }
             else { Select-Packages $script:AppCatalog }

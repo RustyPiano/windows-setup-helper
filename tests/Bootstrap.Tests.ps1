@@ -14,7 +14,7 @@ Expand-Archive -LiteralPath (Join-Path $root 'public/windows-setup-helper.zip') 
 $expectedFiles = @(
     'Start-DevSetup.ps1', 'Launch.cmd', 'Launch-Online.cmd', 'README.md', 'LICENSE',
     'scripts/Preparation.ps1', 'scripts/System.ps1',
-    'data/apps.json', 'data/packages.json', 'data/mirrors.json'
+    'data/apps.json', 'data/packages.json', 'data/mirrors.json', 'data/tweaks.json'
 )
 if (@(Get-ChildItem $payload -File -Recurse).Count -ne $expectedFiles.Count) { throw '发布压缩包包含多余文件或缺少文件。' }
 foreach ($name in $expectedFiles) {
