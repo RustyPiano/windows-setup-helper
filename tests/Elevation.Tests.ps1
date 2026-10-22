@@ -37,8 +37,8 @@ try {
         $sid = New-Object Security.Principal.SecurityIdentifier($rule[0])
         $acl.AddAccessRule((New-Object Security.AccessControl.RegistryAccessRule($sid, $rule[1], 'ContainerInherit', 'None', 'Allow')))
     }
-    Set-Acl -LiteralPath $userPolicyKey -AclObject $acl
-    $policyAcl = (Get-Acl -LiteralPath $userPolicyKey).Sddl
+    Set-Acl -Path $userPolicyKey -AclObject $acl
+    $policyAcl = (Get-Acl -Path $userPolicyKey).Sddl
     Add-Type -Path (Join-Path $PSScriptRoot 'fixtures/RegistryPermissionProbe.cs')
     $nativePath = "$userSid\SOFTWARE\Policies\$registryName"
     if ([RegistryPermissionProbe]::CheckWriteAccess($nativePath, $true) -ne 5 -or [RegistryPermissionProbe]::CheckWriteAccess($nativePath, $false) -ne 0) {
@@ -52,7 +52,7 @@ try {
         (Get-ItemPropertyValue -LiteralPath $userPolicyKey -Name 'TestValue') -ne 11 -or $script:Succeeded -ne 3) {
         throw '真实管理员子进程或当前用户设置没有完成。'
     }
-    if ((Get-Acl -LiteralPath $userPolicyKey).Sddl -ne $policyAcl) { throw '用户策略写入修改了注册表权限。' }
+    if ((Get-Acl -Path $userPolicyKey).Sddl -ne $policyAcl) { throw '用户策略写入修改了注册表权限。' }
     $logs = @(Get-ChildItem -LiteralPath (Join-Path $env:LOCALAPPDATA 'WindowsSetupHelper/logs') -Filter 'administrator-*.log')
     if ($logs.Count -ne 1 -or (Get-Content -LiteralPath $logs[0].FullName -Raw) -notmatch '管理员测试设置') { throw '没有保存管理员进程的运行记录。' }
     if ((Get-Content -LiteralPath $logs[0].FullName -Raw) -match '软件编号：') { throw '管理员初始化输出了无关软件清单。' }
