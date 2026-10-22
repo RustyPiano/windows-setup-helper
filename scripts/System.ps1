@@ -59,6 +59,38 @@ function Set-FileExtensionDisplay {
     Write-Result $label $true
 }
 
+function Get-LocalPolicyTool {
+    $base = if ($env:LOCALAPPDATA) { $env:LOCALAPPDATA } else { $HOME }
+    $folder = Join-Path $base 'WindowsSetupHelper/tools/lgpo'
+    $tool = Join-Path $folder 'LGPO_30/LGPO.exe'
+    if (-not (Test-Path -LiteralPath $tool)) {
+        Write-Status '正在从微软下载本地组策略工具，用于设置小组件。'
+        [void](New-Item -ItemType Directory -Path $folder -Force)
+        $archive = Join-Path $folder 'LGPO.zip'
+        Invoke-WebRequest -Uri 'https://download.microsoft.com/download/8/5/c/85c25433-a1b0-4ffa-9429-7e023e7da8d8/LGPO.zip' -OutFile $archive -UseBasicParsing -TimeoutSec 120
+        if ((Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash -ne 'CB7159D134A0A1E7B1ED2ADA9A3CE8CE8F4DE391D14403D55438AF824247CC55') { throw '微软本地组策略工具下载校验失败。' }
+        Expand-Archive -LiteralPath $archive -DestinationPath $folder -Force
+    }
+    if ((Get-FileHash -LiteralPath $tool -Algorithm SHA256).Hash -ne '0C97F29543418B30340C4FF5D930D31E6196DD59C2CC74B6B890FA7B90C910C7') { throw '微软本地组策略工具文件校验失败。' }
+    return $tool
+}
+
+function Set-WidgetsPolicy {
+    param([ValidateSet(0, 1)][int]$Value)
+    $tool = Get-LocalPolicyTool
+    $policyFile = Join-Path (Split-Path $tool) ('widgets-' + [guid]::NewGuid().ToString('N') + '.txt')
+    $policy = @('Computer', 'SOFTWARE\Policies\Microsoft\Dsh', 'AllowNewsAndInterests', "DWORD:$Value", '') -join "`r`n"
+    [IO.File]::WriteAllText($policyFile, $policy, [Text.Encoding]::Unicode)
+    try {
+        Write-Status '正在通过 Windows 本地组策略设置小组件。'
+        if (-not (Invoke-Tool $tool @('/t', $policyFile))) { throw '小组件本地组策略没有保存成功，请查看工具输出。' }
+        if (-not (Invoke-Tool 'gpupdate' @('/target:computer', '/force', '/wait:60'))) { throw 'Windows 未能完成小组件策略刷新，请查看工具输出。' }
+        $actual = Get-ItemPropertyValue -LiteralPath 'HKLM:\SOFTWARE\Policies\Microsoft\Dsh' -Name 'AllowNewsAndInterests'
+        if ($actual -ne $Value) { throw '小组件策略已提交，但 Windows 实际保留的值与请求不同，请检查设备管理策略。' }
+    }
+    finally { Remove-Item -LiteralPath $policyFile -Force }
+}
+
 function Set-SystemTweak {
     param([object]$Setting)
     $value = switch ($Setting.type) {
@@ -69,24 +101,12 @@ function Set-SystemTweak {
     $detail = '{0}\{1} = {2} ({3})' -f $Setting.path, $Setting.valueName, ($value -join ','), $Setting.type
     if ($script:DryRunEnabled) { Write-Status "[预演] $detail"; return }
     Write-Status $detail -LogOnly
-    $hive = switch -Wildcard ($Setting.path) {
-        'HKLM:\*' { [Microsoft.Win32.RegistryHive]::LocalMachine }
-        'HKCU:\*' { [Microsoft.Win32.RegistryHive]::CurrentUser }
-        default { throw "不支持的注册表位置：$($Setting.path)" }
+    if ($Setting.path -eq 'HKLM:\SOFTWARE\Policies\Microsoft\Dsh' -and $Setting.valueName -eq 'AllowNewsAndInterests') {
+        Set-WidgetsPolicy -Value $value
+        return
     }
-    $baseKey = [Microsoft.Win32.RegistryKey]::OpenBaseKey($hive, [Microsoft.Win32.RegistryView]::Default)
-    $key = $null
-    try {
-        $subkey = $Setting.path.Substring(6)
-        # 现有项只申请设置值权限，避免因没有创建子项权限而拒绝写入。
-        $key = $baseKey.OpenSubKey($subkey, [Microsoft.Win32.RegistryKeyPermissionCheck]::ReadWriteSubTree, [Security.AccessControl.RegistryRights]::SetValue)
-        if ($null -eq $key) { $key = $baseKey.CreateSubKey($subkey, [Microsoft.Win32.RegistryKeyPermissionCheck]::ReadWriteSubTree) }
-        $key.SetValue($Setting.valueName, $value, [Microsoft.Win32.RegistryValueKind]$Setting.type)
-    }
-    finally {
-        if ($null -ne $key) { $key.Dispose() }
-        $baseKey.Dispose()
-    }
+    if (-not (Test-Path -LiteralPath $Setting.path)) { [void](New-Item -Path $Setting.path -Force) }
+    [void](New-ItemProperty -LiteralPath $Setting.path -Name $Setting.valueName -PropertyType $Setting.type -Value $value -Force)
 }
 
 function Invoke-SystemOptimization {
@@ -100,6 +120,7 @@ function Invoke-SystemOptimization {
         Write-Host '  任务栏与搜索：启用右键结束任务，关闭网络搜索、推荐内容和小组件。'
         Write-Host '  Edge：使用空白新标签页，关闭首次运行引导。'
         Write-Host '  系统：启用长路径支持。'
+        Write-Host '首次设置小组件需要联网下载微软本地组策略工具。'
     }
     if ($Full) {
         Write-Host '完整配置还会启用 Sudo、开发者模式和远程桌面，关闭所有弹出通知并隐藏蓝牙图标。' -ForegroundColor Yellow
