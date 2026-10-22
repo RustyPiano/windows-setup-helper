@@ -56,7 +56,9 @@ function Receive-SetupFile {
     $folder = Get-SetupFolder
     if (-not $folder) { return $null }
     $file = Join-Path $folder $Name
-    Write-Status "下载：$Uri；保存到：$file"
+    Write-Status "下载：$Name"
+    Write-Status "保存到：$file"
+    Write-Status "下载地址：$Uri" -LogOnly
     if ($script:DryRunEnabled) { return $file }
     Invoke-WebRequest -Uri $Uri -OutFile ($file + '.download') -UseBasicParsing -TimeoutSec 120
     if ($SHA256 -and (Get-FileHash -LiteralPath ($file + '.download') -Algorithm SHA256).Hash -ne $SHA256) { throw "文件校验失败：$Name" }
@@ -179,50 +181,55 @@ function Show-InstallationGuide {
 
 function Show-PreparationMenu {
     while ($true) {
-        Write-Host "`n装机准备"
-        Write-Host '1. 查看电脑信息'
-        Write-Host '2. 下载 Windows 系统镜像（安装用的 ISO 文件）'
-        Write-Host '3. 打开微软系统镜像下载页'
-        Write-Host '4. 检查系统镜像是否下载完整'
-        Write-Host '5. Rufus：将一个系统镜像写入 U 盘'
-        Write-Host '6. Ventoy：在同一个启动 U 盘中使用多个系统镜像'
-        Write-Host '7. 备份个人文件夹'
-        Write-Host '8. 备份第三方驱动'
-        Write-Host '9. 保存 Windows 装机助手到 U 盘（可离线安装备份驱动）'
-        Write-Host '10. 查看系统安装步骤'
-        Write-Host '0. 返回'
+        Show-Page '重装前准备'
+        Write-Host '备份文件和驱动'
+        Write-Host '1. 备份个人文件夹'
+        Write-Host '2. 备份第三方驱动'
+        Write-Host "`n准备系统镜像和启动盘"
+        Write-Host '3. 下载 Windows 系统镜像（ISO 文件）'
+        Write-Host '4. 打开微软系统镜像下载页'
+        Write-Host '5. 检查已有系统镜像是否完整'
+        Write-Host '6. Rufus：将一个系统镜像写入 U 盘'
+        Write-Host '7. Ventoy：在启动 U 盘中保存多个系统镜像'
+        Write-Host "`n重装时使用"
+        Write-Host '8. 将助手保存到 U 盘，供安装系统后使用'
+        Write-Host '9. 查看 Windows 安装步骤'
+        Write-Host "`n0. 返回主菜单"
+        $choice = Read-MenuChoice -Count 9
+        if ($choice -eq '0') { return }
+        Show-Page '重装前准备 / 当前操作'
         $before = @($script:Succeeded, $script:Skipped, $script:Failed)
-        $choice = (Read-Host '请输入操作序号').Trim()
+        $logCount = $script:LogLines.Count
         switch ($choice) {
-            '1' { Show-SetupComputer }
-            '2' { Start-WindowsDownload }
-            '3' { Open-SetupPage '微软系统镜像下载页' 'https://www.microsoft.com/zh-cn/software-download/windows11' }
-            '4' {
-                $path = Select-SetupPath '选择需要检查的系统镜像' -File
-                if (-not $path) { break }
-                $hash = (Read-Host '请粘贴微软下载页“验证你的下载”中对应文件的校验值；回车返回').Trim()
-                if ($hash) { Test-IsoFile $path $hash }
-            }
-            '5' { Start-BootTool 'Rufus' }
-            '6' { Start-BootTool 'Ventoy' }
-            '7' {
+            '1' {
                 $source = Select-SetupPath '选择需要备份的文件夹'
                 if (-not $source) { break }
                 $destination = Select-SetupPath '选择备份保存位置（重装时会保留的磁盘或 U 盘）'
                 if ($destination) { Backup-UserFiles $source $destination }
             }
-            '8' {
+            '2' {
                 $destination = Select-SetupPath '选择驱动备份的保存位置（重装时会保留的磁盘或 U 盘）'
                 if ($destination) { Export-SetupDrivers $destination }
             }
-            '9' {
+            '3' { Start-WindowsDownload }
+            '4' { Open-SetupPage '微软系统镜像下载页' 'https://www.microsoft.com/zh-cn/software-download/windows11' }
+            '5' {
+                $path = Select-SetupPath '选择需要检查的系统镜像' -File
+                if (-not $path) { break }
+                $hash = (Read-Host '请粘贴微软下载页“验证你的下载”中对应文件的校验值；回车返回').Trim()
+                if ($hash) { Test-IsoFile $path $hash }
+            }
+            '6' { Start-BootTool 'Rufus' }
+            '7' { Start-BootTool 'Ventoy' }
+            '8' {
                 $destination = Select-SetupPath '选择 U 盘中的保存位置'
                 if ($destination) { Copy-SetupLauncher $destination }
             }
-            '10' { Show-InstallationGuide }
-            '0' { return }
-            default { Write-Status '无效的操作序号。' 'Warn'; continue }
+            '9' { Show-InstallationGuide }
         }
-        Show-Summary -Succeeded ($script:Succeeded - $before[0]) -Skipped ($script:Skipped - $before[1]) -Failed ($script:Failed - $before[2])
+        if ($choice -eq '9' -or $script:LogLines.Count -gt $logCount) {
+            Show-Summary -Succeeded ($script:Succeeded - $before[0]) -Skipped ($script:Skipped - $before[1]) -Failed ($script:Failed - $before[2])
+            Wait-ForMenu
+        }
     }
 }

@@ -58,41 +58,86 @@ function Set-FileExtensionDisplay {
     Write-Result $label $true
 }
 
+function Show-ActivationMenu {
+    while ($true) {
+        Show-Page '安装后设置 / Windows 激活'
+        Write-Host '1. 查看激活状态'
+        Write-Host '2. 打开激活工具（Microsoft Activation Scripts）'
+        Write-Host "`n0. 返回安装后设置"
+        $choice = Read-MenuChoice -Count 2
+        if ($choice -eq '0') { return }
+        Show-Page '安装后设置 / Windows 激活'
+        $before = @($script:Succeeded, $script:Skipped, $script:Failed)
+        $logCount = $script:LogLines.Count
+        switch ($choice) {
+            '1' { Show-ActivationStatus }
+            '2' { Start-Activation }
+        }
+        if ($script:LogLines.Count -gt $logCount) {
+            Show-Summary -Succeeded ($script:Succeeded - $before[0]) -Skipped ($script:Skipped - $before[1]) -Failed ($script:Failed - $before[2])
+            Wait-ForMenu
+        }
+    }
+}
+
+function Show-SettingsMenu {
+    while ($true) {
+        Show-Page '安装后设置 / 常用设置'
+        Write-Host '1. 显示文件扩展名（例如 .pdf、.jpg）'
+        Write-Host '2. 隐藏文件扩展名'
+        Write-Host '3. 任务栏设置'
+        Write-Host '4. 启动应用设置'
+        Write-Host '5. 电源设置'
+        Write-Host '6. 默认应用设置'
+        Write-Host "`n0. 返回安装后设置"
+        $choice = Read-MenuChoice -Count 6
+        if ($choice -eq '0') { return }
+        Show-Page '安装后设置 / 常用设置'
+        $before = @($script:Succeeded, $script:Skipped, $script:Failed)
+        $logCount = $script:LogLines.Count
+        switch ($choice) {
+            '1' { Set-FileExtensionDisplay $true }
+            '2' { Set-FileExtensionDisplay $false }
+            '3' { Open-SetupPage '任务栏设置' 'ms-settings:taskbar' }
+            '4' { Open-SetupPage '启动应用设置' 'ms-settings:startupapps' }
+            '5' { Open-SetupPage '电源设置' 'ms-settings:powersleep' }
+            '6' { Open-SetupPage '默认应用设置' 'ms-settings:defaultapps' }
+        }
+        if ($script:LogLines.Count -gt $logCount) {
+            Show-Summary -Succeeded ($script:Succeeded - $before[0]) -Skipped ($script:Skipped - $before[1]) -Failed ($script:Failed - $before[2])
+            Wait-ForMenu
+        }
+    }
+}
+
 function Show-SystemMenu {
     while ($true) {
-        Write-Host "`n安装后配置"
-        Write-Host '1. 查看电脑信息'
-        Write-Host '2. 安装备份驱动'
-        Write-Host '3. 打开 Windows 更新'
-        Write-Host '4. 查看 Windows 激活状态'
-        Write-Host '5. 运行激活工具（get.activated.win）'
-        Write-Host '6. 显示文件扩展名'
-        Write-Host '7. 隐藏文件扩展名'
-        Write-Host '8. 打开任务栏设置'
-        Write-Host '9. 打开启动应用设置'
-        Write-Host '10. 打开电源设置'
-        Write-Host '11. 打开默认应用设置'
-        Write-Host '0. 返回'
+        Show-Page '安装后设置'
+        Write-Host '先安装驱动并更新 Windows，再按需要激活和调整设置。'
+        Write-Host "`n1. 安装之前备份的驱动"
+        Write-Host '2. 打开 Windows 更新'
+        Write-Host '3. Windows 激活'
+        Write-Host '4. 常用设置（文件扩展名、任务栏、电源等）'
+        Write-Host '5. 查看电脑信息'
+        Write-Host "`n0. 返回主菜单"
+        $choice = Read-MenuChoice -Count 5
+        if ($choice -eq '0') { return }
+        if ($choice -in @('1', '2', '5')) { Show-Page '安装后设置' }
         $before = @($script:Succeeded, $script:Skipped, $script:Failed)
-        $choice = (Read-Host '请输入操作序号').Trim()
+        $logCount = $script:LogLines.Count
         switch ($choice) {
-            '1' { Show-SetupComputer }
-            '2' {
+            '1' {
                 $source = Select-SetupPath '选择之前保存的驱动备份文件夹'
                 if ($source) { Import-SetupDrivers $source }
             }
-            '3' { Open-SetupPage 'Windows 更新' 'ms-settings:windowsupdate' }
-            '4' { Show-ActivationStatus }
-            '5' { Start-Activation }
-            '6' { Set-FileExtensionDisplay $true }
-            '7' { Set-FileExtensionDisplay $false }
-            '8' { Open-SetupPage '任务栏设置' 'ms-settings:taskbar' }
-            '9' { Open-SetupPage '启动应用设置' 'ms-settings:startupapps' }
-            '10' { Open-SetupPage '电源设置' 'ms-settings:powersleep' }
-            '11' { Open-SetupPage '默认应用设置' 'ms-settings:defaultapps' }
-            '0' { return }
-            default { Write-Status '无效的操作序号。' 'Warn'; continue }
+            '2' { Open-SetupPage 'Windows 更新' 'ms-settings:windowsupdate' }
+            '3' { Show-ActivationMenu }
+            '4' { Show-SettingsMenu }
+            '5' { Show-SetupComputer }
         }
-        Show-Summary -Succeeded ($script:Succeeded - $before[0]) -Skipped ($script:Skipped - $before[1]) -Failed ($script:Failed - $before[2])
+        if ($choice -in @('1', '2', '5') -and $script:LogLines.Count -gt $logCount) {
+            Show-Summary -Succeeded ($script:Succeeded - $before[0]) -Skipped ($script:Skipped - $before[1]) -Failed ($script:Failed - $before[2])
+            Wait-ForMenu
+        }
     }
 }

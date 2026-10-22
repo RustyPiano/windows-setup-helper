@@ -32,14 +32,14 @@ $script:Skipped = 0
 $script:Succeeded = 0
 
 function Write-Status {
-    param([string]$Message, [ValidateSet('Info', 'Warn', 'Error', 'Success')][string]$Kind = 'Info')
+    param([string]$Message, [ValidateSet('Info', 'Warn', 'Error', 'Success')][string]$Kind = 'Info', [switch]$LogOnly)
     $color = switch ($Kind) {
         'Warn' { 'Yellow' }
         'Error' { 'Red' }
         'Success' { 'Green' }
         default { 'Gray' }
     }
-    Write-Host $Message -ForegroundColor $color
+    if (-not $LogOnly) { Write-Host $Message -ForegroundColor $color }
     $script:LogLines.Add(('[{0}] [{1}] {2}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $Kind, $Message))
 }
 
@@ -86,7 +86,7 @@ function Find-Tool {
 
 function Invoke-Tool {
     param([string]$Name, [string[]]$Arguments, [int[]]$SuccessExitCodes = @(0), [int[]]$SkipExitCodes = @())
-    Write-Status ("运行：{0} {1}" -f $Name, ($Arguments -join ' '))
+    Write-Status ("运行：{0} {1}" -f $Name, ($Arguments -join ' ')) -LogOnly:(-not $script:DryRunEnabled)
     if ($script:DryRunEnabled) {
         Write-Status '[预演] 未执行命令'
         return $true
@@ -119,8 +119,10 @@ function Invoke-Tool {
 
 function Select-Numbers {
     param([string]$Prompt, [int]$Count)
+    Write-Host "`n输入序号，可用逗号分隔或选择范围，例如 1,3,5-7。"
+    Write-Host '输入 all 选择全部；输入 0 或直接按回车返回。'
     while ($true) {
-        $inputText = (Read-Host "$Prompt（序号：1,3,5-7；全部：all；返回：0）").Trim()
+        $inputText = (Read-Host $Prompt).Trim()
         if ($inputText -eq '0' -or $inputText -eq '') { return @() }
         if ($inputText -ieq 'all') { return @(1..$Count) }
         $indices = New-Object 'System.Collections.Generic.HashSet[int]'
@@ -146,17 +148,39 @@ function Select-Numbers {
 
 function Confirm-Selection {
     if ($Yes) { return $true }
-    return (Read-Host '确认执行？输入 y 继续') -ieq 'y'
+    return (Read-Host '确认执行？输入 y 确认，直接按回车取消').Trim() -ieq 'y'
+}
+
+function Show-Page {
+    param([string]$Title)
+    if (-not [Console]::IsOutputRedirected) { Clear-Host }
+    Write-Host 'Windows 装机助手' -ForegroundColor Cyan
+    Write-Host "$Title`n"
+}
+
+function Read-MenuChoice {
+    param([int]$Count, [string]$Prompt = '请选择（0 或回车返回）')
+    while ($true) {
+        $choice = (Read-Host $Prompt).Trim()
+        if ($choice -eq '') { return '0' }
+        $number = 0
+        if ($choice -match '^\d+$' -and [int]::TryParse($choice, [ref]$number) -and $number -ge 0 -and $number -le $Count) {
+            return [string]$number
+        }
+        Write-Host '请输入菜单中的序号。' -ForegroundColor Yellow
+    }
+}
+
+function Wait-ForMenu {
+    [void](Read-Host "`n按回车返回菜单")
 }
 
 function Show-Packages {
-    param([object[]]$Items = $script:PackageCatalog)
-    Write-Host "`n可安装软件（通过 WinGet）："
+    param([object[]]$Items = $script:PackageCatalog, [switch]$Detailed)
     for ($i = 0; $i -lt $Items.Count; $i++) {
         $item = $Items[$i]
-        Write-Host ('{0,2}. [{1}] {2}  ({3})' -f ($i + 1), $item.category, $item.name, $item.id)
-        Write-Host ('    {0}' -f $item.description)
-        if ($item.PSObject.Properties['note']) { Write-Host ('    {0}' -f $item.note) -ForegroundColor Yellow }
+        Write-Host ('{0,2}. {1}  {2}' -f ($i + 1), $item.name, $item.description)
+        if ($Detailed) { Write-Host ('    软件编号：{0}；分类：{1}' -f $item.id, $item.category) }
     }
 }
 
@@ -213,7 +237,7 @@ function Install-Packages {
     }
     $pendingItems = @()
     foreach ($item in $Items) {
-        Write-Status "检查：$($item.name)"
+        Write-Status "检查是否已安装：$($item.name)"
         if (-not $script:DryRunEnabled -and (Test-Installed $item.id)) {
             Write-Status "已安装：$($item.name)"
             Write-Result $item.name $null
@@ -224,8 +248,9 @@ function Install-Packages {
     if ($pendingItems.Count -eq 0) { return }
     Write-Host "`n准备安装：$($pendingItems.name -join '、')"
     if (-not (Confirm-Selection)) { return }
-    foreach ($item in $pendingItems) {
-        Write-Status "安装：$($item.name)"
+    for ($i = 0; $i -lt $pendingItems.Count; $i++) {
+        $item = $pendingItems[$i]
+        Write-Status ('安装 {0}/{1}：{2}' -f ($i + 1), $pendingItems.Count, $item.name)
         $result = Invoke-Tool 'winget' @('install', '--id', $item.id, '--exact', '--source', 'winget', '--accept-package-agreements', '--accept-source-agreements', '--disable-interactivity')
         Write-Result $item.name $result
     }
@@ -466,55 +491,52 @@ function Read-MirrorSelection {
     $plan = @()
     foreach ($manager in $Names) {
         $config = $script:MirrorCatalog.$manager
-        Write-Host "`n[$manager] 可选下载源："
+        Show-Page "软件下载源 / $manager"
         for ($i = 0; $i -lt $config.options.Count; $i++) {
             $option = $config.options[$i]
             $preferred = if ($option.key -eq $config.recommended) { '（推荐）' } else { '' }
             Write-Host ('  {0}. {1}{2}  {3}' -f ($i + 1), $option.name, $preferred, $option.url)
         }
-        $indices = @(Select-Numbers -Prompt "为 $manager 选择一个下载源" -Count $config.options.Count)
-        if ($indices.Count -eq 0) { continue }
-        if ($indices.Count -ne 1) { Write-Status '每个工具只能选择一个下载源，采用第一项。' 'Warn' }
-        $option = $config.options[$indices[0] - 1]
+        $choice = Read-MenuChoice -Count $config.options.Count -Prompt '选择一个下载源（0 或回车跳过此工具）'
+        if ($choice -eq '0') { continue }
+        $option = $config.options[[int]$choice - 1]
         $plan += [pscustomobject]@{ Manager = $manager; Key = $option.key; Name = $option.name; Url = $option.url }
     }
     return @($plan)
 }
 
-function Show-Menu {
+function Show-MirrorMenu {
     while ($true) {
-        Write-Host "`n========== Windows 装机助手 ==========" -ForegroundColor Cyan
-        Write-Host '1. 装机准备（系统镜像、启动盘、备份）'
-        Write-Host '2. 安装后配置（驱动、更新、激活、系统设置）'
-        Write-Host '3. 安装日常软件'
-        Write-Host '4. 安装开发软件'
-        Write-Host '5. 查看开发软件清单'
-        Write-Host '6. 设置推荐的国内软件下载源'
-        Write-Host '7. 自选工具和软件下载源'
-        Write-Host '8. 恢复软件的官方下载源'
-        Write-Host '0. 退出'
-        $choice = (Read-Host '请输入操作序号').Trim()
+        Show-Page '软件下载源'
+        Write-Host '设置 WinGet、Python、Node.js 等工具下载软件包时使用的地址。'
+        Write-Host "`n1. 使用推荐的国内下载源"
+        Write-Host '2. 自选工具和下载源'
+        Write-Host '3. 恢复官方下载源'
+        Write-Host "`n0. 返回主菜单"
+        $choice = Read-MenuChoice -Count 3
+        if ($choice -eq '0') { return }
+        Show-Page '软件下载源'
         $before = @($script:Succeeded, $script:Skipped, $script:Failed)
         $logCount = $script:LogLines.Count
         switch ($choice) {
-            '1' { Show-PreparationMenu }
-            '2' { Show-SystemMenu }
-            '3' { Select-Packages $script:AppCatalog }
-            '4' { Select-Packages $script:PackageCatalog }
-            '6' {
+            '1' {
                 $plan = @(New-MirrorPlan -Names $script:ManagerNames -Key 'Auto')
                 Show-MirrorPlan $plan
                 if (Confirm-Selection) { Invoke-MirrorPlan $plan }
             }
-            '7' {
+            '2' {
                 for ($i = 0; $i -lt $script:ManagerNames.Count; $i++) { Write-Host ('{0}. {1}' -f ($i + 1), $script:ManagerNames[$i]) }
                 $indices = @(Select-Numbers -Prompt '选择需要设置下载源的工具' -Count $script:ManagerNames.Count)
                 if ($indices.Count -eq 0) { break }
                 $names = @($indices | ForEach-Object { $script:ManagerNames[$_ - 1] })
                 $plan = @(Read-MirrorSelection $names)
-                if ($plan.Count -gt 0) { Show-MirrorPlan $plan; if (Confirm-Selection) { Invoke-MirrorPlan $plan } }
+                if ($plan.Count -gt 0) {
+                    Show-Page '软件下载源 / 确认设置'
+                    Show-MirrorPlan $plan
+                    if (Confirm-Selection) { Invoke-MirrorPlan $plan }
+                }
             }
-            '8' {
+            '3' {
                 for ($i = 0; $i -lt $script:ManagerNames.Count; $i++) { Write-Host ('{0}. {1}' -f ($i + 1), $script:ManagerNames[$i]) }
                 $indices = @(Select-Numbers -Prompt '选择需要恢复官方下载源的工具' -Count $script:ManagerNames.Count)
                 if ($indices.Count -eq 0) { break }
@@ -523,12 +545,38 @@ function Show-Menu {
                 Show-MirrorPlan $plan
                 if (Confirm-Selection) { Invoke-MirrorPlan $plan }
             }
-            '5' { Show-Packages }
-            '0' { return }
-            default { Write-Status '无效的操作序号。' 'Warn' }
         }
-        if ($choice -notin @('1', '2') -and $script:LogLines.Count -gt $logCount) {
+        if ($script:LogLines.Count -gt $logCount) {
             Show-Summary -Succeeded ($script:Succeeded - $before[0]) -Skipped ($script:Skipped - $before[1]) -Failed ($script:Failed - $before[2])
+            Wait-ForMenu
+        }
+    }
+}
+
+function Show-Menu {
+    while ($true) {
+        Show-Page '主菜单'
+        Write-Host '准备重装系统，从第 1 项开始；系统已经装好，从第 2 项开始。'
+        Write-Host "`n1. 重装前准备     备份文件、下载系统镜像、制作启动 U 盘"
+        Write-Host '2. 安装后设置     安装驱动、更新 Windows、激活和调整设置'
+        Write-Host '3. 安装日常软件   聊天、办公、浏览器等'
+        Write-Host '4. 安装开发软件   编辑器、编程语言和开发工具'
+        Write-Host '5. 软件下载源     使用国内下载源或恢复官方地址'
+        Write-Host "`n0. 退出"
+        $choice = Read-MenuChoice -Count 5 -Prompt '请选择（0 或回车退出）'
+        $before = @($script:Succeeded, $script:Skipped, $script:Failed)
+        $logCount = $script:LogLines.Count
+        switch ($choice) {
+            '1' { Show-PreparationMenu }
+            '2' { Show-SystemMenu }
+            '3' { Show-Page '安装日常软件'; Select-Packages $script:AppCatalog }
+            '4' { Show-Page '安装开发软件'; Select-Packages $script:PackageCatalog }
+            '5' { Show-MirrorMenu }
+            '0' { return }
+        }
+        if ($choice -in @('3', '4') -and $script:LogLines.Count -gt $logCount) {
+            Show-Summary -Succeeded ($script:Succeeded - $before[0]) -Skipped ($script:Skipped - $before[1]) -Failed ($script:Failed - $before[2])
+            Wait-ForMenu
         }
     }
 }
@@ -540,8 +588,8 @@ if (-not $script:DryRunEnabled -and $env:OS -ne 'Windows_NT') {
 $completed = $false
 try {
     switch ($Action) {
-        'List' { Show-Packages }
-        'AppList' { Show-Packages $script:AppCatalog }
+        'List' { Show-Packages -Detailed }
+        'AppList' { Show-Packages $script:AppCatalog -Detailed }
         'Prepare' { Show-PreparationMenu }
         'System' { Show-SystemMenu }
         'Apps' {

@@ -33,8 +33,9 @@ $entry = Join-Path $root 'Start-DevSetup.ps1'
     . $entry -Action List -DryRun 6>$null
     $script:DryRunEnabled = $false
     $script:Selections = New-Object 'System.Collections.Generic.Queue[string]'
-    foreach ($choice in @('4', '7', '8', '9', '10', '0')) { $script:Selections.Enqueue($choice) }
+    foreach ($choice in @('5', '1', '2', '8', '9', '0')) { $script:Selections.Enqueue($choice) }
     function Read-Host { param([string]$Prompt) return $script:Selections.Dequeue() }
+    function Wait-ForMenu {}
     function Select-SetupPath { return $null }
     function Test-IsoFile { throw '取消后仍然校验了系统镜像。' }
     function Backup-UserFiles { throw '取消后仍然执行了备份。' }
@@ -43,7 +44,7 @@ $entry = Join-Path $root 'Start-DevSetup.ps1'
     $output = Show-PreparationMenu 6>&1 | Out-String
     if ($output -match '操作结果：') { throw '查询或取消操作显示了任务统计。' }
 
-    foreach ($choice in @('2', '0')) { $script:Selections.Enqueue($choice) }
+    foreach ($choice in @('1', '0')) { $script:Selections.Enqueue($choice) }
     function Import-SetupDrivers { throw '取消后仍然安装了驱动。' }
     $output = Show-SystemMenu 6>&1 | Out-String
     if ($output -match '操作结果：') { throw '取消驱动选择后显示了任务统计。' }

@@ -19,6 +19,7 @@ jobs:
           .\tests\Behavior.Tests.ps1
           .\tests\Setup.Tests.ps1
           .\tests\Dialogs.Tests.ps1
+          .\tests\Menu.Tests.ps1
           .\tests\Bootstrap.Tests.ps1
       - name: PowerShell 7
         shell: pwsh
@@ -27,6 +28,7 @@ jobs:
           ./tests/Behavior.Tests.ps1
           ./tests/Setup.Tests.ps1
           ./tests/Dialogs.Tests.ps1
+          ./tests/Menu.Tests.ps1
           ./tests/Bootstrap.Tests.ps1
       - name: 在线启动
         if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
