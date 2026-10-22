@@ -1,0 +1,21 @@
+[
+  { "name": "Windows Terminal", "category": "终端", "id": "Microsoft.WindowsTerminal", "description": "在一个窗口中使用 PowerShell、命令提示符等终端" },
+  { "name": "PowerShell 7", "category": "终端", "id": "Microsoft.PowerShell", "description": "新版 PowerShell，用于执行命令和自动化脚本" },
+  { "name": "Git", "category": "基础工具", "id": "Git.Git", "description": "管理代码版本，下载和提交代码仓库" },
+  { "name": "GitHub CLI", "category": "基础工具", "id": "GitHub.cli", "description": "通过 gh 命令管理 GitHub 仓库、问题和 Pull Request" },
+  { "name": "Visual Studio Code", "category": "编辑器", "id": "Microsoft.VisualStudioCode", "description": "编写、运行和调试代码的编辑器" },
+  { "name": "Python 3.14", "category": "开发语言", "id": "Python.Python.3.14", "description": "Python 运行环境，包含 pip 软件包管理工具" },
+  { "name": "uv", "category": "开发语言", "id": "astral-sh.uv", "description": "管理 Python 项目、依赖和虚拟环境" },
+  { "name": "Node.js LTS", "category": "开发语言", "id": "OpenJS.NodeJS.LTS", "description": "Node.js 长期支持版本，包含 npm 软件包管理工具" },
+  { "name": "Go", "category": "开发语言", "id": "GoLang.Go", "description": "Go 编程语言及编译工具" },
+  { "name": "Rustup (Rust)", "category": "开发语言", "id": "Rustlang.Rustup", "description": "安装和管理 Rust 编译工具及 Cargo" },
+  { "name": ".NET SDK 10", "category": "开发语言", "id": "Microsoft.DotNet.SDK.10", "description": "开发和编译 C# 等 .NET 程序" },
+  { "name": "nvm for Windows", "category": "开发语言", "id": "CoreyButler.NVMforWindows", "description": "管理多个 Node.js 版本，安装后需通过 nvm 安装具体版本", "note": "建议避免同时安装独立 Node.js，以免 PATH 冲突" },
+  { "name": "GitHub Copilot CLI", "category": "AI 工具", "id": "GitHub.Copilot", "description": "在终端中使用 GitHub Copilot 辅助编程" },
+  { "name": "PowerToys", "category": "系统工具", "id": "Microsoft.PowerToys", "description": "提供窗口管理、快捷启动和批量重命名等工具" },
+  { "name": "Oh My Posh", "category": "终端", "id": "JanDeDobbeleer.OhMyPosh", "description": "自定义终端命令提示符的外观" },
+  { "name": "Coreutils for Windows", "category": "基础工具", "id": "Microsoft.Coreutils", "description": "在 Windows 中使用 ls、cat 等常见命令" },
+  { "name": "Windows App CLI", "category": "基础工具", "id": "Microsoft.WinAppCli", "description": "通过命令行配置 Windows 应用开发和打包环境" },
+  { "name": "Docker Desktop", "category": "系统工具", "id": "Docker.DockerDesktop", "description": "运行和管理容器，需要系统支持虚拟化" },
+  { "name": "7-Zip", "category": "系统工具", "id": "7zip.7zip", "description": "压缩和解压 ZIP、7z 等格式的文件" }
+]

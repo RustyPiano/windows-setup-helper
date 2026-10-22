@@ -1,0 +1,6 @@
+.idea/
+.vscode/
+*.log
+*.zip
+.DS_Store
+.work/
