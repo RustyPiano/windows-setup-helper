@@ -69,8 +69,24 @@ function Set-SystemTweak {
     $detail = '{0}\{1} = {2} ({3})' -f $Setting.path, $Setting.valueName, ($value -join ','), $Setting.type
     if ($script:DryRunEnabled) { Write-Status "[预演] $detail"; return }
     Write-Status $detail -LogOnly
-    if (-not (Test-Path -LiteralPath $Setting.path)) { [void](New-Item -Path $Setting.path -Force) }
-    [void](New-ItemProperty -LiteralPath $Setting.path -Name $Setting.valueName -PropertyType $Setting.type -Value $value -Force)
+    $hive = switch -Wildcard ($Setting.path) {
+        'HKLM:\*' { [Microsoft.Win32.RegistryHive]::LocalMachine }
+        'HKCU:\*' { [Microsoft.Win32.RegistryHive]::CurrentUser }
+        default { throw "不支持的注册表位置：$($Setting.path)" }
+    }
+    $baseKey = [Microsoft.Win32.RegistryKey]::OpenBaseKey($hive, [Microsoft.Win32.RegistryView]::Default)
+    $key = $null
+    try {
+        $subkey = $Setting.path.Substring(6)
+        # 现有项只申请设置值权限，避免因没有创建子项权限而拒绝写入。
+        $key = $baseKey.OpenSubKey($subkey, [Microsoft.Win32.RegistryKeyPermissionCheck]::ReadWriteSubTree, [Security.AccessControl.RegistryRights]::SetValue)
+        if ($null -eq $key) { $key = $baseKey.CreateSubKey($subkey, [Microsoft.Win32.RegistryKeyPermissionCheck]::ReadWriteSubTree) }
+        $key.SetValue($Setting.valueName, $value, [Microsoft.Win32.RegistryValueKind]$Setting.type)
+    }
+    finally {
+        if ($null -ne $key) { $key.Dispose() }
+        $baseKey.Dispose()
+    }
 }
 
 function Invoke-SystemOptimization {

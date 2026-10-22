@@ -25,6 +25,7 @@ jobs:
           .\tests\Menu.Tests.ps1
           .\tests\Desktop.Tests.ps1
           .\tests\Optimization.Tests.ps1
+          .\tests\RegistryPermissions.Tests.ps1
           .\tests\Elevation.Tests.ps1
           .\tests\Bootstrap.Tests.ps1
       - name: 在线启动
@@ -54,5 +55,6 @@ jobs:
           .\tests\Menu.Tests.ps1
           .\tests\Desktop.Tests.ps1
           .\tests\Optimization.Tests.ps1
+          .\tests\RegistryPermissions.Tests.ps1
           .\tests\Elevation.Tests.ps1
           .\tests\Bootstrap.Tests.ps1

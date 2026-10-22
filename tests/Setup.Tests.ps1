@@ -181,14 +181,10 @@ try {
         . $entry -Action List -DryRun 6>$null
         $script:DryRunEnabled = $false
         $Yes = $true
-        function New-ItemProperty {
-            param([string]$LiteralPath, [string]$Name, [string]$PropertyType, [int]$Value, [switch]$Force)
-            $script:ExtensionValue = $Value
-        }
-        function Test-Path {
-            param([string]$LiteralPath)
-            if ($LiteralPath -notlike 'HKCU:*') { throw '此测试只验证文件扩展名设置。' }
-            return $true
+        function Set-SystemTweak {
+            param([object]$Setting)
+            if ($Setting.id -ne 'ShowFileExtensions' -or $Setting.type -ne 'DWord') { throw '文件扩展名操作修改了其他设置。' }
+            $script:ExtensionValue = $Setting.value
         }
         Set-FileExtensionDisplay $true
         if ($script:ExtensionValue -ne 0) { throw '显示文件扩展名的设置错误。' }
