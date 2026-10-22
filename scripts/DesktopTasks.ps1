@@ -194,12 +194,17 @@ function Start-SetupWorker {
         param($root, $operation, $values, $preview)
         . (Join-Path $root 'Start-DevSetup.ps1') -Action List -DryRun -Yes 6>$null
         $script:DryRunEnabled = $preview
+        $completed = $false
         try {
             Invoke-SetupTask $operation $values
             Show-Summary
+            $completed = $true
             [pscustomobject]@{ Succeeded = $script:Succeeded; Skipped = $script:Skipped; Failed = $script:Failed }
         }
-        finally { Save-Log }
+        finally {
+            if (-not $completed -and $Error.Count -gt 0) { Write-Status $Error[0].Exception.Message 'Error' }
+            Save-Log
+        }
     }).AddArgument($script:ProjectRoot).AddArgument($Operation).AddArgument($Values).AddArgument([bool]$Preview)
     $handle = $worker.BeginInvoke()
     return [pscustomobject]@{ PowerShell = $worker; Handle = $handle; ReadCount = 0 }

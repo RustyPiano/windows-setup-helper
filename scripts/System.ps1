@@ -91,6 +91,18 @@ function Set-WidgetsPolicy {
     finally { Remove-Item -LiteralPath $policyFile -Force }
 }
 
+function Test-SystemTweakValue {
+    param([object]$Setting, [object]$Value)
+    if (-not (Test-Path -LiteralPath $Setting.path)) { return $false }
+    $key = Get-Item -LiteralPath $Setting.path
+    try {
+        return $key.GetValueNames() -contains $Setting.valueName -and
+            $key.GetValueKind($Setting.valueName).ToString() -eq $Setting.type -and
+            ($key.GetValue($Setting.valueName) -join ',') -ceq ($Value -join ',')
+    }
+    finally { $key.Dispose() }
+}
+
 function Set-SystemTweak {
     param([object]$Setting)
     $value = switch ($Setting.type) {
@@ -105,8 +117,10 @@ function Set-SystemTweak {
         Set-WidgetsPolicy -Value $value
         return
     }
+    if (Test-SystemTweakValue $Setting $value) { Write-Status '当前设置已符合要求。'; return }
     if (-not (Test-Path -LiteralPath $Setting.path)) { [void](New-Item -Path $Setting.path -Force) }
     [void](New-ItemProperty -LiteralPath $Setting.path -Name $Setting.valueName -PropertyType $Setting.type -Value $value -Force)
+    if (-not (Test-SystemTweakValue $Setting $value)) { throw "设置写入后核对失败：$($Setting.name)。请检查 Windows 或设备管理策略。" }
 }
 
 function Invoke-SystemOptimization {

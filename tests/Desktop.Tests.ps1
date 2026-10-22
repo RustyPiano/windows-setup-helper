@@ -34,7 +34,7 @@ try {
         if ((Get-FileHash $source).Hash -ne (Get-FileHash (Join-Path $folder 'Images/sample.iso')).Hash) { throw '镜像复制内容不一致。' }
         $script:ProjectRoot = Join-Path $folder 'source'
         [void](New-Item -ItemType Directory -Path $script:ProjectRoot)
-        foreach ($name in @('Launch.cmd', 'Launch-Online.cmd', 'Start-DevSetup.ps1', 'README.md', 'data', 'scripts', 'docs')) {
+        foreach ($name in @('Launch.cmd', 'Launch-Online.cmd', 'Start-DevSetup.ps1', 'README.md', 'LICENSE', 'data', 'scripts', 'docs')) {
             Copy-Item -LiteralPath (Join-Path $root $name) -Destination $script:ProjectRoot -Recurse
         }
         Invoke-SetupTask 'CopyAssistant' @{ Folder = $folder }
@@ -132,11 +132,13 @@ try {
             if ($worker.PowerShell.HadErrors -or $messages -notmatch 'winget download' -or $output[-1].Failed -ne 0) { throw '后台任务没有传回操作记录和结果。' }
         }
         finally { $worker.PowerShell.Dispose() }
-        $worker = Start-SetupWorker 'CopyIso' @{ Folder = $folder; Source = 'wrong.txt' } -Preview
+        $worker = Start-SetupWorker 'CopyIso' @{ Folder = $folder; Source = 'wrong.txt' }
         try {
             $deadline = (Get-Date).AddSeconds(30)
             while (-not $worker.Handle.IsCompleted -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 25 }
             if (-not $worker.Handle.IsCompleted -or $worker.PowerShell.InvocationStateInfo.State -ne 'Failed' -or $worker.PowerShell.InvocationStateInfo.Reason.Message -notmatch 'ISO') { throw '后台异常没有保留错误状态和原因。' }
+            $logs = Get-ChildItem -LiteralPath (Join-Path $env:LOCALAPPDATA 'WindowsSetupHelper/logs') -Filter '*.log'
+            if (($logs | Get-Content -Raw -Encoding UTF8 | Out-String) -notmatch '\[Error\].*ISO') { throw '后台异常原因没有写入日志。' }
         }
         finally { $worker.PowerShell.Dispose() }
     }
@@ -148,7 +150,10 @@ try {
             try {
                 $state.Form.Show()
                 [Windows.Forms.Application]::DoEvents()
-                if ($state.Tabs.TabPages.Count -ne 6) { throw '图形界面缺少入口。' }
+                if ($state.Tabs.TabPages.Count -ne 7 -or $state.Log.Visible -or $state.TargetChoice.Visible) { throw '首页没有分离任务入口、目标信息和详细记录。' }
+                Invoke-DesktopClick @{ Action = 'TargetSetup' }
+                [Windows.Forms.Application]::DoEvents()
+                if ($state.Tabs.SelectedIndex -ne 6 -or -not $state.TargetChoice.Visible) { throw '准备重装入口没有打开目标信息。' }
                 $state.TargetChoice.SelectedIndex = 1
                 if ($state.Architecture.SelectedIndex -ne -1) { throw '另一台电脑继承了本机架构。' }
                 $state.Model.Text = '另一台 Arm 电脑'
@@ -169,8 +174,7 @@ try {
                 if (-not $node.Checked -or $nvm.Checked) { throw '冲突软件反向切换失败。' }
                 $state.Tabs.SelectedIndex = 1
                 [Windows.Forms.Application]::DoEvents()
-                Set-DesktopStepState @{ Guide = 'prepare'; Index = 0 } '已核对'
-                $state.Guides.prepare.Next.PerformClick()
+                $state.Guides.prepare.Done.PerformClick()
                 if ($state.Guides.prepare.List.SelectedIndex -ne 1) { throw '下一步按钮没有切换步骤。' }
                 $state.Guides.prepare.Previous.PerformClick()
                 if ($state.Guides.prepare.States[0] -ne '已核对' -or $state.Guides.prepare.Title.Text -notmatch '已核对') { throw '切换步骤后丢失了完成状态。' }
@@ -187,7 +191,7 @@ try {
                 $workerFolder = Join-Path $folder 'window-copy'
                 [void](New-Item -ItemType Directory -Path (Join-Path $workerFolder 'Images') -Force)
                 Start-DesktopOperation 'CopyIso' @{ Source = (Join-Path $folder 'sample.iso'); Folder = $workerFolder } @{ Guide = 'prepare'; Index = 2 }
-                if ($state.Tabs.Enabled) { throw '后台任务执行时仍允许重复提交。' }
+                if ($state.Tabs.Enabled -or $state.Navigation.Enabled) { throw '后台任务执行时仍允许重复提交。' }
                 $deadline = (Get-Date).AddSeconds(30)
                 while ($null -ne $state.Worker -and (Get-Date) -lt $deadline) { [Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 25 }
                 if ($null -ne $state.Worker -or -not $state.Tabs.Enabled -or $state.Guides.prepare.States[2] -ne '待核对' -or $state.Log.Text -notmatch '成功：保存系统镜像') { throw '窗口没有显示实际复制结果或恢复操作按钮。' }
@@ -195,14 +199,30 @@ try {
                 Start-DesktopOperation 'CopyIso' @{ Source = 'wrong.txt'; Folder = $workerFolder } @{ Guide = 'prepare'; Index = 2 }
                 $deadline = (Get-Date).AddSeconds(30)
                 while ($null -ne $state.Worker -and (Get-Date) -lt $deadline) { [Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 25 }
-                if ($null -ne $state.Worker -or -not $state.Tabs.Enabled -or $state.Guides.prepare.States[2] -ne '未完成' -or $state.Status.Text -notmatch 'ISO') { throw '窗口没有显示后台错误或恢复操作按钮。' }
+                if ($null -ne $state.Worker -or -not $state.Tabs.Enabled -or -not $state.Navigation.Enabled -or $state.Guides.prepare.States[2] -ne '未完成' -or $state.Log.Text -notmatch 'ISO' -or -not $state.Log.Visible) { throw '窗口没有展开后台错误或恢复操作按钮。' }
+                Invoke-DesktopClick @{ Action = 'ToggleDetails' }
+                if ($state.Log.Visible) { throw '详细记录不能收起。' }
                 function Confirm-DesktopAction { return $false }
                 function Start-SetupWorker { throw '取消确认后仍然开始安装。' }
                 Invoke-DesktopClick @{ Action = 'InstallSelected'; Context = 'developer' }
                 if ($null -ne $state.Worker) { throw '取消后仍创建了后台任务。' }
-                $state.Form.Size = New-Object Drawing.Size(860, 650)
+                $state.Form.Size = New-Object Drawing.Size(980, 680)
                 [Windows.Forms.Application]::DoEvents()
                 if ($state.Tabs.Width -le 0 -or $state.Guides.prepare.Body.Height -lt 150) { throw '最小窗口尺寸下引导不可用。' }
+                foreach ($key in @('prepare', 'system')) {
+                    $state.Tabs.SelectedIndex = if ($key -eq 'prepare') { 1 } else { 2 }
+                    for ($i = 0; $i -lt $state.Guides[$key].Steps.Count; $i++) {
+                        $view = $state.Guides[$key]
+                        $view.List.SelectedIndex = $i
+                        [Windows.Forms.Application]::DoEvents()
+                        if ($view.Steps[$i].manual -and ($view.Next.Visible -or -not $view.Done.Visible)) { throw '手动核对步骤同时显示了两个继续按钮。' }
+                        foreach ($button in @($view.Actions.Controls) + @($view.Previous, $view.Done, $view.Next)) {
+                            if (-not $button.Visible) { continue }
+                            $position = $state.Tabs.PointToClient($button.PointToScreen([Drawing.Point]::Empty))
+                            if ($position.Y -lt 0 -or $position.Y + $button.Height -gt $state.Tabs.ClientSize.Height -or $position.X + $button.Width -gt $state.Tabs.ClientSize.Width) { throw "最小窗口中按钮超出页面：$($button.Text)" }
+                        }
+                    }
+                }
             }
             finally { $state.Timer.Dispose(); $state.Form.Dispose() }
         }

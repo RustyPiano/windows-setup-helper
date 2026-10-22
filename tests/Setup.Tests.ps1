@@ -147,7 +147,7 @@ try {
         if ($script:DriverTool -ne 'pnputil' -or $script:DriverArguments -notcontains '/subdirs' -or $script:DriverArguments -contains '/reboot' -or $script:DriverSkipCodes -notcontains 259) { throw '驱动安装命令错误。' }
         $script:ProjectRoot = Join-Path $testFolder 'assistant-source'
         [void](New-Item -ItemType Directory -Path $script:ProjectRoot)
-        foreach ($name in @('Launch.cmd', 'Launch-Online.cmd', 'Start-DevSetup.ps1', 'README.md', 'data', 'scripts', 'docs')) {
+        foreach ($name in @('Launch.cmd', 'Launch-Online.cmd', 'Start-DevSetup.ps1', 'README.md', 'LICENSE', 'data', 'scripts', 'docs')) {
             Copy-Item -LiteralPath (Join-Path $root $name) -Destination $script:ProjectRoot -Recurse
         }
         Copy-SetupLauncher $testFolder

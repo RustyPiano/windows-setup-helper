@@ -198,7 +198,7 @@ function Copy-SetupLauncher {
     if (-not (Confirm-Selection)) { return }
     if ($script:DryRunEnabled) { Write-Status "[预演] 复制助手到 $folder"; return }
     [void](New-Item -ItemType Directory -Path $folder -Force)
-    foreach ($name in @('Launch.cmd', 'Launch-Online.cmd', 'Start-DevSetup.ps1', 'README.md', 'data', 'scripts', 'docs')) {
+    foreach ($name in @('Launch.cmd', 'Launch-Online.cmd', 'Start-DevSetup.ps1', 'README.md', 'LICENSE', 'data', 'scripts', 'docs')) {
         Copy-Item -LiteralPath (Join-Path $script:ProjectRoot $name) -Destination $folder -Recurse -Force
     }
     Write-Status "安装后运行 $folder\Launch.cmd，可在离线状态下安装备份的驱动。"

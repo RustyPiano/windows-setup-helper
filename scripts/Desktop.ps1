@@ -1,24 +1,38 @@
 ﻿function New-DesktopButton {
-    param([string]$Text, [string]$Action, [object]$Context = $null)
+    param([string]$Text, [string]$Action, [object]$Context = $null, [switch]$Primary)
     $button = New-Object Windows.Forms.Button
     $button.Text = $Text
     $button.AutoSize = $true
     $button.MinimumSize = New-Object Drawing.Size(100, 36)
     $button.Padding = New-Object Windows.Forms.Padding(8, 3, 8, 3)
     $button.Margin = New-Object Windows.Forms.Padding(0, 4, 10, 4)
+    $button.FlatStyle = 'Flat'
+    $button.FlatAppearance.BorderColor = [Drawing.ColorTranslator]::FromHtml('#D7DEE8')
+    $button.BackColor = [Drawing.Color]::White
+    $button.ForeColor = [Drawing.ColorTranslator]::FromHtml('#243247')
+    if ($Primary) {
+        $button.BackColor = [Drawing.ColorTranslator]::FromHtml('#245FC7')
+        $button.ForeColor = [Drawing.Color]::White
+        $button.FlatAppearance.BorderSize = 0
+    }
     $button.Tag = @{ Action = $Action; Context = $Context }
     $button.Add_Click({ Invoke-DesktopClick $this.Tag })
     return ,$button
 }
 
 function New-DesktopLabel {
-    param([string]$Text)
+    param([string]$Text, [switch]$Heading)
     $label = New-Object Windows.Forms.Label
     $label.Text = $Text
     $label.AutoSize = $true
     $label.Dock = 'Top'
     $label.MaximumSize = New-Object Drawing.Size(740, 0)
     $label.Margin = New-Object Windows.Forms.Padding(0, 6, 0, 6)
+    $label.ForeColor = [Drawing.ColorTranslator]::FromHtml('#526078')
+    if ($Heading) {
+        $label.Font = New-Object Drawing.Font('Microsoft YaHei UI', 16, [Drawing.FontStyle]::Bold)
+        $label.ForeColor = [Drawing.ColorTranslator]::FromHtml('#18263B')
+    }
     return ,$label
 }
 
@@ -27,6 +41,7 @@ function New-DesktopFlow {
     $panel.Dock = 'Top'
     $panel.AutoSize = $true
     $panel.WrapContents = $true
+    $panel.Margin = New-Object Windows.Forms.Padding(0)
     return ,$panel
 }
 
@@ -34,6 +49,7 @@ function New-DesktopColumn {
     $panel = New-Object Windows.Forms.TableLayoutPanel
     $panel.Dock = 'Fill'
     $panel.ColumnCount = 1
+    [void]$panel.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle('Percent', 100)))
     $panel.AutoScroll = $true
     $panel.Padding = New-Object Windows.Forms.Padding(16)
     return ,$panel
@@ -64,11 +80,11 @@ function Get-DesktopTarget {
 
 function Get-DesktopPreparation {
     $target = Get-DesktopTarget
-    if ($null -eq $target) { $script:Desktop.Tabs.SelectedIndex = 0; return $null }
+    if ($null -eq $target) { $script:Desktop.Tabs.SelectedIndex = 6; return $null }
     $folder = $script:Desktop.Folder.Text
     if (-not $folder -or -not (Test-Path -LiteralPath $folder -PathType Container)) {
-        Show-DesktopMessage '请在“开始”页选择准备目录，再继续。'
-        $script:Desktop.Tabs.SelectedIndex = 0
+        Show-DesktopMessage '请选择准备目录，再继续。'
+        $script:Desktop.Tabs.SelectedIndex = 6
         return $null
     }
     $targetFile = Join-Path $folder 'target.json'
@@ -77,7 +93,7 @@ function Get-DesktopPreparation {
         if ($existing.Architecture -ne $target.Architecture -or $existing.Model -ne $target.Model -or $existing.IsCurrent -ne $target.IsCurrent) {
             Show-DesktopMessage '这个目录已有其他目标电脑的资料。请为新的目标电脑选择另一个目录，避免混用镜像和驱动。'
             $state = $script:Desktop
-            $state.Tabs.SelectedIndex = 0
+            $state.Tabs.SelectedIndex = 6
             return $null
         }
     }
@@ -120,6 +136,7 @@ function Update-DesktopGuide {
     $view.Previous.Enabled = $index -gt 0
     $view.Next.Text = if ($index -eq $view.Steps.Count - 1) { '查看完成情况' } else { '下一步' }
     $view.Done.Visible = [bool]$step.manual
+    $view.Next.Visible = -not [bool]$step.manual
 }
 
 function Set-DesktopStepState {
@@ -127,7 +144,7 @@ function Set-DesktopStepState {
     if ($null -eq $Context -or -not $Context.ContainsKey('Guide')) { return }
     $view = $script:Desktop.Guides[$Context.Guide]
     $view.States[$Context.Index] = $Status
-    $view.List.Items[$Context.Index] = '{0}. {1} · {2}' -f ($Context.Index + 1), $view.Steps[$Context.Index].title, $Status
+    $view.List.Items[$Context.Index] = '{0}. {1}' -f ($Context.Index + 1), $view.Steps[$Context.Index].title
     Update-DesktopGuide $Context.Guide
 }
 
@@ -143,12 +160,27 @@ function Add-DesktopGuide {
     $layout = New-Object Windows.Forms.TableLayoutPanel
     $layout.Dock = 'Fill'
     $layout.ColumnCount = 2
-    [void]$layout.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle('Percent', 32)))
-    [void]$layout.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle('Percent', 68)))
+    [void]$layout.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle('Absolute', 220)))
+    [void]$layout.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle('Percent', 100)))
     $list = New-Object Windows.Forms.ListBox
     $list.Dock = 'Fill'
     $list.IntegralHeight = $false
     $list.HorizontalScrollbar = $true
+    $list.BorderStyle = 'None'
+    $list.BackColor = [Drawing.ColorTranslator]::FromHtml('#F3F6FA')
+    $list.Font = New-Object Drawing.Font('Microsoft YaHei UI', 9)
+    $list.ItemHeight = 36
+    $list.DrawMode = 'OwnerDrawFixed'
+    $list.Add_DrawItem({
+        param($sender, $eventArgs)
+        if ($eventArgs.Index -lt 0) { return }
+        $eventArgs.DrawBackground()
+        $bounds = $eventArgs.Bounds
+        $bounds.X += 10
+        $bounds.Width -= 10
+        [Windows.Forms.TextRenderer]::DrawText($eventArgs.Graphics, [string]$sender.Items[$eventArgs.Index], $sender.Font, $bounds, $eventArgs.ForeColor, ([Windows.Forms.TextFormatFlags]::VerticalCenter -bor [Windows.Forms.TextFormatFlags]::EndEllipsis))
+        $eventArgs.DrawFocusRectangle()
+    })
     $list.Tag = $Key
     $list.Add_SelectedIndexChanged({ Update-DesktopGuide $this.Tag })
     $content = New-DesktopColumn
@@ -156,13 +188,15 @@ function Add-DesktopGuide {
     foreach ($height in @('AutoSize', 'Percent', 'AutoSize', 'AutoSize', 'AutoSize', 'AutoSize')) {
         [void]$content.RowStyles.Add((New-Object Windows.Forms.RowStyle($height, 100)))
     }
-    $title = New-DesktopLabel ''
+    $title = New-DesktopLabel '' -Heading
+    $title.Font = New-Object Drawing.Font('Microsoft YaHei UI', 12, [Drawing.FontStyle]::Bold)
     $body = New-Object Windows.Forms.RichTextBox
     $body.Dock = 'Fill'
     $body.ReadOnly = $true
     $body.BorderStyle = 'None'
     $body.BackColor = [Drawing.Color]::White
     $body.DetectUrls = $false
+    $body.ForeColor = [Drawing.ColorTranslator]::FromHtml('#344258')
     $body.MinimumSize = New-Object Drawing.Size(200, 150)
     $hashLabel = New-DesktopLabel '校验值（仅校验 ISO 时填写，从微软下载页完整复制）'
     $hash = New-Object Windows.Forms.TextBox
@@ -171,16 +205,16 @@ function Add-DesktopGuide {
     $actions = New-DesktopFlow
     $navigation = New-DesktopFlow
     $previous = New-DesktopButton '上一步' 'Previous' $Key
-    $done = New-DesktopButton '我已核对本步骤' 'Done' $Key
+    $done = New-DesktopButton '确认完成并继续' 'Done' $Key -Primary
     $skip = New-DesktopButton '暂时跳过' 'Skip' $Key
-    $next = New-DesktopButton '下一步' 'Next' $Key
+    $next = New-DesktopButton '下一步' 'Next' $Key -Primary
     foreach ($control in @($previous, $done, $skip, $next)) { $navigation.Controls.Add($control) }
     foreach ($control in @($title, $body, $hashLabel, $hash, $actions, $navigation)) { $content.Controls.Add($control) }
     $layout.Controls.Add($list, 0, 0)
     $layout.Controls.Add($content, 1, 0)
     $Tab.Controls.Add($layout)
     $script:Desktop.Guides[$Key] = @{ List = $list; Title = $title; Body = $body; Hash = $hash; HashLabel = $hashLabel; Actions = $actions; Previous = $previous; Next = $next; Done = $done; Steps = $Steps; States = @($Steps | ForEach-Object { '未完成' }) }
-    for ($i = 0; $i -lt $Steps.Count; $i++) { [void]$list.Items.Add(('{0}. {1} · 未完成' -f ($i + 1), $Steps[$i].title)) }
+    for ($i = 0; $i -lt $Steps.Count; $i++) { [void]$list.Items.Add(('{0}. {1}' -f ($i + 1), $Steps[$i].title)) }
     $list.SelectedIndex = 0
 }
 
@@ -189,16 +223,20 @@ function Add-DesktopPackages {
     $layout = New-DesktopColumn
     $layout.RowCount = 4
     foreach ($height in @('AutoSize', 'Percent', 'AutoSize', 'AutoSize')) { [void]$layout.RowStyles.Add((New-Object Windows.Forms.RowStyle($height, 100))) }
-    $layout.Controls.Add((New-DesktopLabel '勾选需要的软件。安装会修改当前电脑；下载只保存安装包，供目标电脑使用。'))
+    $layout.Controls.Add((New-DesktopLabel '勾选软件后，选择安装到当前电脑，或下载安装包带到另一台电脑。'))
     $list = New-Object Windows.Forms.ListView
     $list.Dock = 'Fill'
     $list.View = 'Details'
     $list.CheckBoxes = $true
     $list.FullRowSelect = $true
     $list.HideSelection = $false
+    $list.BorderStyle = 'None'
     $list.AccessibleName = '选择需要的软件'
-    [void]$list.Columns.Add('软件', 210)
-    [void]$list.Columns.Add('用途', 470)
+    [void]$list.Columns.Add('软件', 220)
+    [void]$list.Columns.Add('用途', 420)
+    $list.Add_Resize({
+        if ($this.Columns.Count -eq 2) { $this.Columns[1].Width = [Math]::Max(200, $this.ClientSize.Width - $this.Columns[0].Width - 24) }
+    })
     $groups = @{}
     foreach ($item in $Catalog) {
         if (-not $groups.ContainsKey($item.category)) {
@@ -228,11 +266,11 @@ function Add-DesktopPackages {
     $options.Dock = 'Top'
     $options.AutoSize = $true
     $options.Padding = New-Object Windows.Forms.Padding(0)
-    $options.Controls.Add((New-DesktopLabel '安装目录：留空使用软件默认位置。自选目录下按软件分别建立子目录；实际支持情况由安装程序决定。'))
+    $options.Controls.Add((New-DesktopLabel '安装目录（留空使用默认位置；每个软件单独建立文件夹）'))
     $pathRow = New-DesktopFlow
     $path = New-Object Windows.Forms.TextBox
     $path.ReadOnly = $true
-    $path.Width = 380
+    $path.Width = 280
     $path.AccessibleName = '软件安装目录'
     $pathRow.Controls.Add($path)
     $pathRow.Controls.Add((New-DesktopButton '选择安装目录' 'InstallFolder' $Key))
@@ -246,7 +284,7 @@ function Add-DesktopPackages {
     if ($Key -eq 'developer') { $options.Controls.Add((New-DesktopLabel 'Node.js 与 nvm 二选一，勾选其中一个会取消另一个。没有多版本需求时选择 Node.js LTS。')) }
     $layout.Controls.Add($options)
     $buttons = New-DesktopFlow
-    $buttons.Controls.Add((New-DesktopButton '安装到当前电脑' 'InstallSelected' $Key))
+    $buttons.Controls.Add((New-DesktopButton '安装到当前电脑' 'InstallSelected' $Key -Primary))
     $buttons.Controls.Add((New-DesktopButton '下载到准备目录' 'DownloadSelected' $Key))
     $buttons.Controls.Add((New-DesktopButton '清空选择' 'ClearSelection' $Key))
     $layout.Controls.Add($buttons)
@@ -258,10 +296,11 @@ function Start-DesktopOperation {
     param([string]$Operation, [hashtable]$Values, [object]$Context)
     $state = $script:Desktop
     if ($null -ne $state.Worker) { return }
-    $state.Log.AppendText("`r`n----- $Operation -----`r`n")
+    $state.Log.Clear()
     $state.Status.Text = '正在操作，请等待；需要授权或安装选择时，请在弹出的窗口中完成。'
     $state.Progress.Style = 'Marquee'
     $state.Tabs.Enabled = $false
+    $state.Navigation.Enabled = $false
     $state.Context = $Context
     $state.Operation = $Operation
     $state.Worker = Start-SetupWorker $Operation $Values
@@ -285,7 +324,7 @@ function Update-DesktopWorker {
     if ($failed) {
         $reason = $job.PowerShell.InvocationStateInfo.Reason.Message
         $state.Log.AppendText("操作未完成：$reason`r`n")
-        $state.Status.Text = "操作未完成：$reason"
+        $state.Status.Text = '操作未完成。请查看操作记录中的原因。'
         Set-DesktopStepState $state.Context '未完成'
     }
     else {
@@ -293,11 +332,11 @@ function Update-DesktopWorker {
         $result = $output[-1]
         $failed = $result.Failed -gt 0 -or $job.PowerShell.HadErrors
         if ($failed) {
-            $state.Status.Text = '有操作未完成，请查看下方记录。原来的选择仍然保留，可以处理原因后重试。'
+            $state.Status.Text = '有操作未完成。请查看操作记录，处理原因后重试。'
             Set-DesktopStepState $state.Context '未完成'
         }
         else {
-            $state.Status.Text = '操作结束。请查看下方结果；步骤说明仍保留，可继续核对或进入下一步。'
+            $state.Status.Text = '操作结束：成功 {0}，跳过 {1}。' -f $result.Succeeded, $result.Skipped
             if ($null -ne $state.Context -and $state.Context.ContainsKey('Guide')) {
                 $view = $state.Guides[$state.Context.Guide]
                 if ($view.Steps[$state.Context.Index].manual) { Set-DesktopStepState $state.Context '待核对' }
@@ -309,6 +348,16 @@ function Update-DesktopWorker {
     $state.Worker = $null
     $state.Progress.Style = 'Blocks'
     $state.Tabs.Enabled = $true
+    $state.Navigation.Enabled = $true
+    if ($failed -or $state.Operation -in @('Computer', 'ActivationStatus', 'CheckKit')) { Set-DesktopDetails $true }
+}
+
+function Set-DesktopDetails {
+    param([bool]$Visible)
+    $state = $script:Desktop
+    $state.Log.Visible = $Visible
+    $state.Root.RowStyles[3].Height = if ($Visible) { 140 } else { 0 }
+    $state.DetailsButton.Text = if ($Visible) { '收起操作记录' } else { '查看操作记录' }
 }
 
 function Invoke-DesktopClick {
@@ -316,8 +365,15 @@ function Invoke-DesktopClick {
     $state = $script:Desktop
     $action = $Command.Action
     $context = $Command.Context
+    if ($action -eq 'ToggleDetails') { Set-DesktopDetails (-not $state.Log.Visible); return }
     if ($null -ne $state.Worker) { return }
     switch ($action) {
+        'Navigate' {
+            if ($context -eq 1 -and -not $state.Folder.Text) { $state.Tabs.SelectedIndex = 6 }
+            else { $state.Tabs.SelectedIndex = [int]$context }
+            return
+        }
+        'TargetSetup' { $state.Tabs.SelectedIndex = 6; return }
         'ChooseFolder' {
             $folder = Select-SetupPath '选择准备目录（不要放在即将清除的启动 U 盘上）'
             if ($folder) { Open-DesktopPreparation $folder }
@@ -452,31 +508,38 @@ function New-SetupDesktop {
     $form = New-Object Windows.Forms.Form
     $form.Text = 'Windows 装机助手'
     $form.Font = New-Object Drawing.Font('Microsoft YaHei UI', 10)
-    $form.Size = New-Object Drawing.Size(1120, 850)
-    $form.MinimumSize = New-Object Drawing.Size(860, 650)
+    $form.Size = New-Object Drawing.Size(1180, 780)
+    $form.MinimumSize = New-Object Drawing.Size(980, 680)
+    $form.BackColor = [Drawing.Color]::White
+    $form.ForeColor = [Drawing.ColorTranslator]::FromHtml('#243247')
     $form.StartPosition = 'CenterScreen'
     $form.AutoScaleMode = 'Dpi'
     $root = New-Object Windows.Forms.TableLayoutPanel
     $root.Dock = 'Fill'
     $root.ColumnCount = 1
-    $root.RowCount = 5
+    $root.RowCount = 4
     [void]$root.RowStyles.Add((New-Object Windows.Forms.RowStyle('AutoSize')))
     [void]$root.RowStyles.Add((New-Object Windows.Forms.RowStyle('Percent', 100)))
     [void]$root.RowStyles.Add((New-Object Windows.Forms.RowStyle('AutoSize')))
-    [void]$root.RowStyles.Add((New-Object Windows.Forms.RowStyle('Absolute', 8)))
-    [void]$root.RowStyles.Add((New-Object Windows.Forms.RowStyle('Absolute', 145)))
-    $heading = New-DesktopLabel 'Windows 装机助手   /   准备资料 · 安装引导 · 软件安装'
-    $heading.Padding = New-Object Windows.Forms.Padding(16, 8, 0, 8)
+    [void]$root.RowStyles.Add((New-Object Windows.Forms.RowStyle('Absolute', 0)))
+    $heading = New-DesktopLabel '开始' -Heading
+    $heading.Padding = New-Object Windows.Forms.Padding(24, 12, 0, 8)
     $tabs = New-Object Windows.Forms.TabControl
     $tabs.Dock = 'Fill'
-    foreach ($title in @('开始', '重装前准备', '安装后设置', '日常软件', '开发软件', '下载设置（可选）')) {
+    $tabs.Appearance = 'FlatButtons'
+    $tabs.SizeMode = 'Fixed'
+    $tabs.ItemSize = New-Object Drawing.Size(0, 1)
+    $tabs.Multiline = $true
+    $tabs.TabStop = $false
+    foreach ($title in @('开始', '重装前准备', '安装后设置', '日常软件', '开发软件', '下载设置', '目标电脑与资料目录')) {
         $tab = New-Object Windows.Forms.TabPage
         $tab.Text = $title
         $tab.BackColor = [Drawing.Color]::White
         $tabs.TabPages.Add($tab)
     }
-    $status = New-DesktopLabel '请选择要完成的事情。操作结果会保留在下方。'
-    $status.Padding = New-Object Windows.Forms.Padding(12, 0, 12, 0)
+    $status = New-DesktopLabel '请选择要完成的事情。'
+    $status.MaximumSize = New-Object Drawing.Size(540, 0)
+    $status.Padding = New-Object Windows.Forms.Padding(8, 0, 0, 0)
     $progress = New-Object Windows.Forms.ProgressBar
     $progress.Dock = 'Fill'
     $log = New-Object Windows.Forms.TextBox
@@ -486,15 +549,79 @@ function New-SetupDesktop {
     $log.WordWrap = $false
     $log.Dock = 'Fill'
     $log.AccessibleName = '操作记录与结果'
+    $log.BorderStyle = 'None'
+    $log.BackColor = [Drawing.ColorTranslator]::FromHtml('#F3F6FA')
+    $log.Font = New-Object Drawing.Font('Microsoft YaHei UI', 9)
+    $log.Visible = $false
     $timer = New-Object Windows.Forms.Timer
     $timer.Interval = 150
     $timer.Add_Tick({ Update-DesktopWorker })
-    $script:Desktop = @{ Form = $form; Tabs = $tabs; Status = $status; Log = $log; Progress = $progress; Timer = $timer; Worker = $null; Context = $null; Operation = ''; Guides = @{}; Packages = @{} }
-    foreach ($control in @($heading, $tabs, $status, $progress, $log)) { $root.Controls.Add($control) }
-    $form.Controls.Add($root)
+    $footer = New-Object Windows.Forms.TableLayoutPanel
+    $footer.Dock = 'Top'
+    $footer.AutoSize = $true
+    $footer.ColumnCount = 2
+    [void]$footer.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle('Percent', 100)))
+    [void]$footer.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle('AutoSize')))
+    $footer.Controls.Add($status, 0, 0)
+    $detailsButton = New-DesktopButton '查看操作记录' 'ToggleDetails'
+    $footer.Controls.Add($detailsButton, 1, 0)
+    $progress.Height = 3
+    $progress.Dock = 'Top'
+    $footer.Controls.Add($progress, 0, 1)
+    $footer.SetColumnSpan($progress, 2)
+    $shell = New-Object Windows.Forms.TableLayoutPanel
+    $shell.Dock = 'Fill'
+    $shell.ColumnCount = 2
+    [void]$shell.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle('Absolute', 168)))
+    [void]$shell.ColumnStyles.Add((New-Object Windows.Forms.ColumnStyle('Percent', 100)))
+    $navigation = New-DesktopColumn
+    $navigation.BackColor = [Drawing.ColorTranslator]::FromHtml('#F3F6FA')
+    $navigation.Padding = New-Object Windows.Forms.Padding(12, 20, 8, 12)
+    $brand = New-DesktopLabel "Windows`n装机助手" -Heading
+    $brand.Font = New-Object Drawing.Font('Microsoft YaHei UI', 14, [Drawing.FontStyle]::Bold)
+    $brand.Margin = New-Object Windows.Forms.Padding(0, 0, 0, 24)
+    $navigation.Controls.Add($brand)
+    for ($i = 0; $i -lt 6; $i++) {
+        $button = New-DesktopButton $tabs.TabPages[$i].Text 'Navigate' $i
+        $button.Dock = 'Top'
+        $button.TextAlign = 'MiddleLeft'
+        $button.Margin = New-Object Windows.Forms.Padding(0, 0, 0, 8)
+        $button.FlatAppearance.BorderSize = 0
+        $navigation.Controls.Add($button)
+    }
+    $script:Desktop = @{ Form = $form; Tabs = $tabs; Root = $root; Navigation = $navigation; Heading = $heading; DetailsButton = $detailsButton; Status = $status; Log = $log; Progress = $progress; Timer = $timer; Worker = $null; Context = $null; Operation = ''; Guides = @{}; Packages = @{} }
+    $tabs.Add_SelectedIndexChanged({
+        $state = $script:Desktop
+        $state.Heading.Text = $state.Tabs.SelectedTab.Text
+        foreach ($button in $state.Navigation.Controls) {
+            if ($button -isnot [Windows.Forms.Button]) { continue }
+            $selected = $button.Tag.Context -eq $state.Tabs.SelectedIndex -or ($state.Tabs.SelectedIndex -eq 6 -and $button.Tag.Context -eq 1)
+            $button.BackColor = if ($selected) { [Drawing.ColorTranslator]::FromHtml('#DFE9FA') } else { [Drawing.ColorTranslator]::FromHtml('#F3F6FA') }
+        }
+    })
+    foreach ($control in @($heading, $tabs, $footer, $log)) { $root.Controls.Add($control) }
+    $shell.Controls.Add($navigation, 0, 0)
+    $shell.Controls.Add($root, 1, 0)
+    $form.Controls.Add($shell)
+    $homePage = New-DesktopColumn
+    $homePage.Controls.Add((New-DesktopLabel '今天需要完成什么？' -Heading))
+    foreach ($task in @(
+        @{ Title = '准备重装系统'; Body = '给这台电脑或另一台电脑备份文件，准备驱动、系统镜像和启动 U 盘。'; Action = 'TargetSetup' },
+        @{ Title = '配置当前电脑'; Body = '系统已经装好，继续安装驱动、检查更新和激活、调整常用设置。'; Action = 'GoSystem' },
+        @{ Title = '选择需要的软件'; Body = '勾选日常软件，选择安装位置；也可以下载安装包，带给无法联网的电脑。'; Action = 'GoApps' }
+    )) {
+        $card = New-DesktopColumn
+        $card.Dock = 'Top'
+        $card.AutoSize = $true
+        $card.Margin = New-Object Windows.Forms.Padding(0, 12, 0, 0)
+        $card.BackColor = [Drawing.ColorTranslator]::FromHtml('#F3F6FA')
+        $card.Controls.Add((New-DesktopButton $task.Title $task.Action -Primary))
+        $card.Controls.Add((New-DesktopLabel $task.Body))
+        $homePage.Controls.Add($card)
+    }
+    $tabs.TabPages[0].Controls.Add($homePage)
     $startPage = New-DesktopColumn
-    $startPage.Controls.Add((New-DesktopLabel '你想完成什么？'))
-    $startPage.Controls.Add((New-DesktopLabel '准备重装：先填写目标电脑，再按步骤准备文件、驱动和启动盘。'))
+    $startPage.Controls.Add((New-DesktopLabel '这些信息用于选择镜像、驱动和离线安装包。'))
     $target = New-Object Windows.Forms.ComboBox
     $target.DropDownStyle = 'DropDownList'
     $target.Width = 370
@@ -526,18 +653,14 @@ function New-SetupDesktop {
     $startPage.Controls.Add((New-DesktopLabel '准备目录：保存镜像、驱动、安装包和离线助手。请放在制作启动盘时不会被清除的设备上。'))
     $folderRow = New-DesktopFlow
     $folder = New-Object Windows.Forms.TextBox
-    $folder.Width = 500
+    $folder.Width = 360
     $folder.ReadOnly = $true
     $folder.AccessibleName = '准备资料的保存目录'
     $folderRow.Controls.Add($folder)
     $folderRow.Controls.Add((New-DesktopButton '选择准备目录' 'ChooseFolder'))
     $startPage.Controls.Add($folderRow)
-    $startPage.Controls.Add((New-DesktopButton '开始准备重装' 'Prepare'))
-    $startPage.Controls.Add((New-DesktopLabel '系统已经装好：在目标电脑运行助手，安装驱动、检查更新并调整设置。'))
-    $startPage.Controls.Add((New-DesktopButton '配置当前电脑' 'GoSystem'))
-    $startPage.Controls.Add((New-DesktopLabel '只需要软件：勾选软件，选择安装到当前电脑或下载供另一台电脑使用。'))
-    $startPage.Controls.Add((New-DesktopButton '选择需要的软件' 'GoApps'))
-    $tabs.TabPages[0].Controls.Add($startPage)
+    $startPage.Controls.Add((New-DesktopButton '开始准备重装' 'Prepare' -Primary))
+    $tabs.TabPages[6].Controls.Add($startPage)
     $script:Desktop.TargetChoice = $target
     $script:Desktop.Model = $model
     $script:Desktop.Architecture = $architecture
@@ -550,6 +673,9 @@ function New-SetupDesktop {
     })
     $guide = Get-Content (Join-Path $script:ProjectRoot 'data/guide.json') -Raw -Encoding UTF8 | ConvertFrom-Json
     Add-DesktopGuide $tabs.TabPages[1] 'prepare' $guide.prepare
+    $targetButton = New-DesktopButton '查看或修改目标电脑' 'TargetSetup'
+    $targetButton.Dock = 'Bottom'
+    $tabs.TabPages[1].Controls.Add($targetButton)
     Add-DesktopGuide $tabs.TabPages[2] 'system' $guide.system
     $model.Add_TextChanged({ Reset-DesktopPreparationSteps })
     $architecture.Add_SelectedIndexChanged({ Reset-DesktopPreparationSteps })
@@ -589,6 +715,11 @@ function New-SetupDesktop {
     })
     $kitFolder = Split-Path -Parent $script:ProjectRoot
     if (Test-Path -LiteralPath (Join-Path $kitFolder 'target.json')) { Open-DesktopPreparation $kitFolder }
+    $form.Add_Shown({
+        $area = [Windows.Forms.Screen]::FromControl($this).WorkingArea
+        $this.Size = New-Object Drawing.Size([Math]::Min($this.Width, $area.Width), [Math]::Min($this.Height, $area.Height))
+        $this.Location = New-Object Drawing.Point(($area.X + [Math]::Max(0, ($area.Width - $this.Width) / 2)), ($area.Y + [Math]::Max(0, ($area.Height - $this.Height) / 2)))
+    })
     return $script:Desktop
 }
 

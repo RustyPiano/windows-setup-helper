@@ -129,6 +129,19 @@ try {
                     $value = $key.GetValue($setting.valueName)
                     $key.Dispose()
                     if ($kind -ne $setting.type -or ($value -join ',') -ne ($setting.value -join ',')) { throw "注册表类型或数值错误：$($setting.id)" }
+                    & {
+                        function New-ItemProperty { throw '已经符合要求的设置不应再次写入。' }
+                        Set-SystemTweak $target
+                    }
+                }
+                & {
+                    $target = $catalog[0] | Select-Object *
+                    $target.path = Join-Path $registryRoot 'blocked-write'
+                    function New-ItemProperty { return }
+                    $failed = $false
+                    try { Set-SystemTweak $target }
+                    catch { if ($_.Exception.Message -notmatch '写入后核对失败') { throw }; $failed = $true }
+                    if (-not $failed) { throw '注册表没有保存要求的值时仍报告成功。' }
                 }
             }
             finally {
