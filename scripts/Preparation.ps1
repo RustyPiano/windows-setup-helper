@@ -127,7 +127,7 @@ function Test-IsoFile {
 }
 
 function Backup-UserFiles {
-    param([string]$Source, [string]$Destination)
+    param([string]$Source, [string]$Destination, [switch]$ContentsOnly, [switch]$PreparationKit)
     $Source = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Source)
     $Destination = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($Destination)
     $sourcePath = $Source.TrimEnd([IO.Path]::DirectorySeparatorChar, [IO.Path]::AltDirectorySeparatorChar)
@@ -135,9 +135,45 @@ function Backup-UserFiles {
     $separator = [IO.Path]::DirectorySeparatorChar
     if ($sourcePath -eq $destinationPath -or $destinationPath.StartsWith($sourcePath + $separator, [StringComparison]::OrdinalIgnoreCase) -or $sourcePath.StartsWith($destinationPath + $separator, [StringComparison]::OrdinalIgnoreCase)) { throw '备份来源和目标目录不能相同，也不能互相包含。' }
     if (-not (Test-Path -LiteralPath $Source -PathType Container)) { throw "来源文件夹不存在：$Source" }
+    $target = $null
+    if ($PreparationKit) {
+        $target = Get-Content -LiteralPath (Join-Path $Source 'target.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+        if (Test-Path -LiteralPath $Destination) {
+            if (-not (Test-Path -LiteralPath $Destination -PathType Container)) { throw '资料保存位置已被同名文件占用，请选择其他位置。' }
+            $targetFile = Join-Path $Destination 'target.json'
+            if (Test-Path -LiteralPath $targetFile) {
+                $existing = Get-Content -LiteralPath $targetFile -Raw -Encoding UTF8 | ConvertFrom-Json
+                if ($existing.Architecture -ne $target.Architecture -or $existing.Model -ne $target.Model -or $existing.IsCurrent -ne $target.IsCurrent) {
+                    throw '保存位置属于其他目标电脑，请选择其他位置。'
+                }
+            }
+            elseif (@(Get-ChildItem -LiteralPath $Destination -Force).Count -gt 0) { throw '保存位置已有文件，但没有目标电脑信息，无法确认是否属于本次准备，请选择其他位置。' }
+        }
+    }
+    elseif (-not $ContentsOnly) {
+        $name = if ($sourcePath -match '^[A-Za-z]:$') { $sourcePath.Substring(0, 1) } else { [IO.Path]::GetFileName($sourcePath) }
+        $Destination = Join-Path $destinationPath $name
+        $number = 2
+        while (Test-Path -LiteralPath $Destination) {
+            $Destination = Join-Path $destinationPath ("$name ($number)")
+            $number++
+        }
+    }
     Write-Host "备份来源：$Source`n备份目标：$Destination"
     if (-not (Confirm-Selection)) { return }
-    $result = Invoke-Tool 'robocopy' @($Source, $Destination, '/E', '/COPY:DAT', '/DCOPY:DAT', '/XJ', '/SL', '/R:0', '/W:0') -SuccessExitCodes (0..7)
+    if (-not $script:DryRunEnabled) {
+        if ($PreparationKit) {
+            [void](New-Item -ItemType Directory -Path $Destination -Force)
+            $targetValues = @{}
+            foreach ($property in $target.PSObject.Properties) { $targetValues[$property.Name] = $property.Value }
+            # 复制大文件前保存目标信息，让中断后的目录能够被识别并继续使用。
+            Save-PreparationTarget $Destination $targetValues
+        }
+        elseif (-not $ContentsOnly) { [void](New-Item -ItemType Directory -Path $Destination) }
+    }
+    $arguments = @($Source, $Destination, '/E', '/COPY:DAT', '/DCOPY:DAT', '/XJ', '/SL', '/R:0', '/W:0')
+    if ($PreparationKit) { $arguments += '/Z' }
+    $result = Invoke-Tool 'robocopy' $arguments -SuccessExitCodes (0..7)
     Write-Result '文件夹备份' $result
 }
 
@@ -162,7 +198,7 @@ function Copy-SetupLauncher {
     if (-not (Confirm-Selection)) { return }
     if ($script:DryRunEnabled) { Write-Status "[预演] 复制助手到 $folder"; return }
     [void](New-Item -ItemType Directory -Path $folder -Force)
-    foreach ($name in @('Launch.cmd', 'Launch-Online.cmd', 'Start-DevSetup.ps1', 'data', 'scripts')) {
+    foreach ($name in @('Launch.cmd', 'Launch-Online.cmd', 'Start-DevSetup.ps1', 'README.md', 'data', 'scripts', 'docs')) {
         Copy-Item -LiteralPath (Join-Path $script:ProjectRoot $name) -Destination $folder -Recurse -Force
     }
     Write-Status "安装后运行 $folder\Launch.cmd，可在离线状态下安装备份的驱动。"

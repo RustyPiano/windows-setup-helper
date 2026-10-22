@@ -111,7 +111,7 @@ try {
             [IO.File]::WriteAllText((Join-Path $source 'document.txt'), 'backup-test')
             [IO.File]::WriteAllText((Join-Path $destination 'keep.txt'), 'keep-test')
             Backup-UserFiles $source $destination
-            if ([IO.File]::ReadAllText((Join-Path $destination 'document.txt')) -ne 'backup-test' -or -not (Test-Path (Join-Path $destination 'keep.txt'))) { throw '文件备份不完整或删除了目标文件。' }
+            if ([IO.File]::ReadAllText((Join-Path $destination 'source with spaces/document.txt')) -ne 'backup-test' -or -not (Test-Path (Join-Path $destination 'keep.txt'))) { throw '文件备份不完整或删除了目标文件。' }
             if ($script:Succeeded -ne 1 -or $script:Failed -ne 0) { throw 'Robocopy 正常复制被误判为失败。' }
             Show-SetupComputer
             Show-ActivationStatus
@@ -147,12 +147,14 @@ try {
         if ($script:DriverTool -ne 'pnputil' -or $script:DriverArguments -notcontains '/subdirs' -or $script:DriverArguments -contains '/reboot' -or $script:DriverSkipCodes -notcontains 259) { throw '驱动安装命令错误。' }
         $script:ProjectRoot = Join-Path $testFolder 'assistant-source'
         [void](New-Item -ItemType Directory -Path $script:ProjectRoot)
-        foreach ($name in @('Launch.cmd', 'Launch-Online.cmd', 'Start-DevSetup.ps1', 'data', 'scripts')) {
+        foreach ($name in @('Launch.cmd', 'Launch-Online.cmd', 'Start-DevSetup.ps1', 'README.md', 'data', 'scripts', 'docs')) {
             Copy-Item -LiteralPath (Join-Path $root $name) -Destination $script:ProjectRoot -Recurse
         }
         Copy-SetupLauncher $testFolder
         $launcher = Join-Path $testFolder 'WindowsSetupHelper/Launch-Online.cmd'
         if ((Get-FileHash $launcher).Hash -ne (Get-FileHash (Join-Path $root 'Launch-Online.cmd')).Hash) { throw '复制的在线启动入口不一致。' }
+        $guide = Join-Path $testFolder 'WindowsSetupHelper/docs/advanced.md'
+        if ((Get-FileHash $guide).Hash -ne (Get-FileHash (Join-Path $root 'docs/advanced.md')).Hash) { throw '离线助手中的技术说明与源文件不一致。' }
         $shell = (Get-Process -Id $PID).Path
         $output = & $shell -NoProfile -File (Join-Path $testFolder 'WindowsSetupHelper/Start-DevSetup.ps1') -Action AppList -DryRun
         if ($LASTEXITCODE -ne 0 -or ($output -join "`n") -notmatch 'Tencent.WeChat') { throw '复制的助手无法独立启动。' }
@@ -182,6 +184,11 @@ try {
         function New-ItemProperty {
             param([string]$LiteralPath, [string]$Name, [string]$PropertyType, [int]$Value, [switch]$Force)
             $script:ExtensionValue = $Value
+        }
+        function Test-Path {
+            param([string]$LiteralPath)
+            if ($LiteralPath -notlike 'HKCU:*') { throw '此测试只验证文件扩展名设置。' }
+            return $true
         }
         Set-FileExtensionDisplay $true
         if ($script:ExtensionValue -ne 0) { throw '显示文件扩展名的设置错误。' }

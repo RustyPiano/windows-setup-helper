@@ -12,6 +12,7 @@ files = [root / name for name in (
 )]
 files.extend(sorted((root / "scripts").glob("*.ps1")))
 files.extend(sorted((root / "data").glob("*.json")))
+files.extend(sorted((root / "docs").glob("*.md")))
 
 with ZipFile(output / "windows-setup-helper.zip", "w", ZIP_DEFLATED) as archive:
     for file in files:

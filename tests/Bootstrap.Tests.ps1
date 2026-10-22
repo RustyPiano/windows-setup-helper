@@ -12,9 +12,9 @@ $testFolder = Join-Path $root ('.work/bootstrap-tests-' + [guid]::NewGuid().ToSt
 $payload = Join-Path $testFolder 'windows-setup-helper-main'
 Expand-Archive -LiteralPath (Join-Path $root 'public/windows-setup-helper.zip') -DestinationPath $testFolder
 $expectedFiles = @(
-    'Start-DevSetup.ps1', 'Launch.cmd', 'Launch-Online.cmd', 'README.md', 'LICENSE',
-    'scripts/Preparation.ps1', 'scripts/System.ps1',
-    'data/apps.json', 'data/packages.json', 'data/mirrors.json', 'data/tweaks.json'
+    'Start-DevSetup.ps1', 'Launch.cmd', 'Launch-Online.cmd', 'README.md', 'LICENSE', 'docs/advanced.md',
+    'scripts/Preparation.ps1', 'scripts/System.ps1', 'scripts/Desktop.ps1', 'scripts/DesktopTasks.ps1',
+    'data/apps.json', 'data/packages.json', 'data/mirrors.json', 'data/tweaks.json', 'data/guide.json'
 )
 if (@(Get-ChildItem $payload -File -Recurse).Count -ne $expectedFiles.Count) { throw '发布压缩包包含多余文件或缺少文件。' }
 foreach ($name in $expectedFiles) {

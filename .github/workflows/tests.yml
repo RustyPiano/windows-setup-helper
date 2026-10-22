@@ -8,34 +8,32 @@ on:
 jobs:
   smoke:
     runs-on: windows-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shell: [powershell, pwsh]
     steps:
       - uses: actions/checkout@v4
       - name: 打包发布文件
         run: python scripts/build-hosting.py
-      - name: Windows PowerShell 5.1
-        shell: powershell
+      - name: Windows 测试（${{ matrix.shell }}）
+        shell: ${{ matrix.shell }}
         run: |
           .\tests\Smoke.Tests.ps1
           .\tests\Behavior.Tests.ps1
           .\tests\Setup.Tests.ps1
+          .\tests\Copy.Tests.ps1
           .\tests\Dialogs.Tests.ps1
           .\tests\Menu.Tests.ps1
+          .\tests\Desktop.Tests.ps1
           .\tests\Optimization.Tests.ps1
           .\tests\Bootstrap.Tests.ps1
-      - name: PowerShell 7
-        shell: pwsh
-        run: |
-          ./tests/Smoke.Tests.ps1
-          ./tests/Behavior.Tests.ps1
-          ./tests/Setup.Tests.ps1
-          ./tests/Dialogs.Tests.ps1
-          ./tests/Menu.Tests.ps1
-          ./tests/Optimization.Tests.ps1
-          ./tests/Bootstrap.Tests.ps1
       - name: 在线启动
-        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && matrix.shell == 'powershell'
         shell: powershell
         run: .\tests\Online.Tests.ps1
       - name: 官方工具下载与校验
+        if: matrix.shell == 'powershell'
         shell: powershell
         run: .\tests\Downloads.Tests.ps1

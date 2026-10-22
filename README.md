@@ -1,158 +1,89 @@
 # Windows 装机助手
 
-Windows 装机助手，覆盖镜像下载、启动盘工具、文件与驱动备份、安装后配置、日常软件和开发环境。支持 Windows PowerShell 5.1 与 PowerShell 7。
+在 Windows 中勾选安装常用软件、设置新电脑，也可以按步骤准备重装系统所需的文件、驱动和启动 U 盘。
 
-## 启动
+## 打开助手
 
-在 Windows PowerShell 中运行：
+[下载 Windows 装机助手](https://setup.rustypiano.com/windows-setup-helper.zip)，解压后双击文件夹中的 `Launch.cmd`，即可打开操作窗口。
+
+也可以在 Windows PowerShell 中粘贴以下命令，按回车启动：
 
 ```powershell
 irm https://setup.rustypiano.com | iex
 ```
 
-运行命令后从同一域名下载并打开 Windows 装机助手，退出时清理临时文件。系统镜像、工具和备份保存在用户选择的位置，日志保存在 `%LOCALAPPDATA%\WindowsSetupHelper\logs\`。
+打开后，在“开始”页选择要做的事情：
 
-也可以下载仓库 ZIP 并解压，双击 `Launch.cmd`。以管理员身份运行终端可备份和安装驱动、修改 WinGet 源。
+- “选择需要的软件”：给当前电脑安装软件。
+- “配置当前电脑”：安装驱动、检查 Windows 更新和激活、调整常用设置。
+- “开始准备重装”：为这台电脑或另一台电脑准备 Windows 11 安装资料。
 
-```text
-Windows 装机助手
-主菜单
+## 安装软件
 
-准备重装系统，从第 1 项开始；系统已经装好，从第 2 项开始。
+1. 打开“日常软件”或“开发软件”，勾选需要的软件。每个软件旁边都有用途说明。
+2. 需要指定保存位置时，点击“选择安装目录”，例如选择 `D:\Applications`。留空则使用软件默认位置。
+3. 点击“安装到当前电脑”。弹出安装向导后，确认安装位置和选项，完成安装。
 
-1. 重装前准备     备份文件、下载系统镜像、制作启动 U 盘
-2. 安装后设置     安装驱动、更新 Windows、激活和调整设置
-3. 安装日常软件   聊天、办公、浏览器等
-4. 安装开发软件   编辑器、编程语言和开发工具
-5. 软件下载源     使用国内下载源或恢复官方地址
+已安装的软件会跳过。自选目录下会为每个软件建立单独的文件夹；部分软件不支持指定目录，以安装向导显示的位置为准。配置和缓存仍可能保存在系统盘。
 
-0. 退出
-```
+“日常软件”提供微信、QQ、WPS Office、Chrome、Firefox、小狼毫输入法、SumatraPDF、ShareX、VLC 和 ToDesk。
 
-菜单输入序号进入，输入 `0` 或直接按回车返回。软件和工具列表支持输入 `1,3,5-7` 多选，输入 `all` 全选；每个工具的下载源单独选择一项。实际更改前显示选项并确认，输入 `y` 执行，直接按回车取消。操作结果会停留，按回车后返回菜单。
+“开发软件”提供 Git、Visual Studio Code、Python、Node.js、Go、Rust、.NET、Docker Desktop 等开发工具，以及终端、7-Zip 和 PowerToys。Node.js LTS（Long-Term Support，长期支持版）与 nvm for Windows（Node Version Manager for Windows，Node.js 版本管理工具）二选一；需要管理多个 Node.js 版本时选择 nvm，安装后再通过它安装具体版本。
 
-交互式软件列表显示名称和用途，命令行的软件清单还会显示软件编号。软件安装显示当前进度，完整执行命令保存在运行记录中。
+## 配置当前电脑
 
-## 装机流程
+在“开始”页点击“配置当前电脑”，按“安装后设置”中的引导操作：
 
-1. 查看电脑型号、系统、架构和磁盘空间，将文件夹和第三方驱动备份到重装时保留的磁盘或 U 盘。
-2. 下载 Windows 系统镜像，即安装 Windows 使用的 ISO 文件。微软媒体创建工具负责下载；采用 Arm 处理器的电脑会打开对应的官方下载页。已有文件可以通过选择窗口打开，再粘贴微软下载页的校验值，检查文件是否下载完整。
-3. 选择启动盘工具。Rufus 将一个系统镜像写入 U 盘，Ventoy 支持在同一个启动 U 盘中保存多个系统镜像。在工具窗口中选择目标 U 盘并确认写入，写入会清除所选设备的数据。助手会校验下载的工具文件，微软媒体创建工具还会验证 Microsoft 数字签名。
-4. 将安装后助手保存到 U 盘，重启电脑并从 U 盘进入 Windows 安装程序，按安装界面选择版本和分区。
-5. 系统安装后运行 U 盘中 `WindowsSetupHelper\Launch.cmd`。保存在 U 盘中的助手可离线安装备份驱动，联网后可安装软件、检查更新和运行激活工具。
+1. 安装驱动并连接网络。备份中有 `.inf` 驱动安装信息文件时，点击“安装备份驱动（INF）”并选择驱动文件夹。厂商提供的 `.exe` 或 `.msi` 文件需要双击安装，压缩包需要先解压。
+2. 打开 Windows 更新，检查并安装更新，按提示重启。
+3. 查看激活状态，使用已有数字许可证或自己的产品密钥激活。“其他激活工具”会联网打开第三方 Microsoft Activation Scripts，在其窗口中另行操作。
+4. 按需要调整系统设置，再安装软件。
 
-文件夹备份使用 Robocopy，保留目标目录中已有的其他文件。驱动备份使用 DISM 导出第三方驱动，安装使用 PnPUtil 匹配当前硬件。
+“应用推荐设置”会显示文件扩展名、隐藏文件和完整路径，让文件管理器默认打开“此电脑”，关闭最近记录和推荐；启用任务栏右键“结束任务”，关闭网络搜索、搜索亮点、开始菜单推荐、账户通知和小组件；将 Edge 新标签页设为空白页，关闭首次运行引导，并启用长路径支持。点击前可以在步骤说明中查看这些内容，不需要时可以跳过。
 
-备份、恢复驱动和保存 U 盘副本都通过窗口选择文件夹。点击“取消”返回菜单。
+任务栏、电源、默认应用和启动应用也有单独的设置入口。部分设置需要重新登录或重启 Windows 后生效。
 
-## 安装后设置
+## 准备重装系统
 
-提供电脑信息、备份驱动安装、Windows 更新、激活、推荐系统优化，以及任务栏、启动应用、电源和默认应用设置入口。
+准备一个用于制作启动盘的 U 盘，以及保存文件备份和安装资料的位置。**制作启动盘会清除所选 U 盘，唯一一份备份和准备资料必须保存在其他位置。** 重装前还需要保存设备加密或 BitLocker 恢复密钥，并确认目标电脑满足 Windows 11 要求及首次设置的网络和账户条件。
 
-选择“安装后设置 → 应用推荐系统优化”，统一确认一次即可应用 18 项设置，需要管理员权限时会出现 Windows 授权提示。
+1. 在“开始”页选择给当前电脑重装，或给另一台电脑安装。给另一台电脑准备时，填写那台电脑的品牌、完整型号和处理器类型，选择安装系统后的联网情况。
+2. 点击“选择准备目录”，选择安装资料的保存文件夹，再点击“开始准备重装”。不同电脑使用不同的准备目录。
+3. 按“重装前准备”的引导备份个人文件、准备驱动。网卡驱动需要与目标电脑型号对应；目标电脑还能启动时，可以在那台电脑运行助手导出驱动。
+4. 点击“打开对应的微软下载页”，下载 Windows 11 系统镜像，也就是用于安装系统的 ISO 文件。下载后点击“加入已有 ISO”；已有镜像也可以直接加入。微软提供校验值时，可以用“校验 ISO”核对文件。
+5. 点击“使用 Rufus”制作启动盘，工具中的选择顺序见当前步骤说明。需要在一个 U 盘中保存多个镜像时，可以使用 Ventoy。请在制作工具中核对 U 盘名称、容量和完成提示。
+6. 点击“保存离线助手”和“检查准备资料”。制作启动盘完成后，点击“复制资料到移动存储设备”，将资料保存到 U 盘的数据分区或另一个移动存储设备中的 `WindowsSetupKit` 文件夹。
+7. 在目标电脑从 U 盘启动，按助手中的安装说明和 Windows 安装程序提示操作。**删除或格式化磁盘分区会清除其中的文件，操作前必须确认安装磁盘。**
+8. 进入 Windows 桌面后，打开移动存储设备中的 `WindowsSetupKit\WindowsSetupHelper\Launch.cmd`，进入“安装后设置”。
 
-推荐配置显示文件扩展名、隐藏文件和完整路径，默认打开“此电脑”，关闭最近文件、常用文件夹记录以及文件管理器的推荐和推广提示，设置详细信息窗格；启用任务栏右键“结束任务”，关闭网络搜索、搜索亮点、开始菜单推荐、账户通知和小组件；将 Edge 新标签页设为空白页并关闭首次运行引导；启用长路径支持。
+个人文件备份会按来源文件夹分别保存，重名时自动编号，例如 `Documents`、`Documents (2)`，保留每次备份的内容。
 
-原版四类系统配置共 23 项，保存在 [`data/tweaks.json`](data/tweaks.json)。完整配置还包含 Sudo、开发者模式、远程桌面、关闭全部弹出通知和隐藏蓝牙图标，通过命令行的 `-FullOptimization` 启用。Sudo 需要系统提供 Windows Sudo，家庭版无法作为远程桌面被控端；远程桌面配置保留原版行为，防火墙需要单独允许连接。
+资料复制失败后，可以处理错误原因，再选择同一位置重试；补充驱动或安装包后也可以再次复制。助手会核对目标电脑信息，保留保存位置中的其他文件。
 
-激活入口使用以下命令，在独立 PowerShell 窗口中启动第三方 Microsoft Activation Scripts，由用户在其菜单中选择具体操作。退出后读取 Windows 激活状态。
+备份后请打开几个文件确认能够读取；资料复制完成后，请检查目标电脑能否从 U 盘启动，以及准备的驱动是否适用于该电脑。“检查准备资料”会检查所需文件是否存在。
 
-```powershell
-irm https://get.activated.win | iex
-```
+需要手动核对的步骤完成后，点击“我已核对本步骤”，再点击“下一步”。步骤完成情况只保留在本次打开的窗口中。
 
-部分优化需要重新登录或重启 Windows 后生效。常用设置菜单保留文件扩展名开关，以及任务栏、启动应用、电源和默认应用设置页面。
+## 给无法联网的电脑准备软件
 
-## 软件清单
+在能联网的电脑上，填写“开始”页的目标电脑信息，选择准备目录并点击“开始准备重装”。进入“日常软件”或“开发软件”，勾选需要的软件，点击“下载到准备目录”。安装包保存在准备目录的 `Software` 文件夹中，此操作只下载文件。
 
-日常软件在 [`data/apps.json`](data/apps.json) 中维护：微信、QQ、WPS Office、Google Chrome、Mozilla Firefox、小狼毫输入法、SumatraPDF、ShareX、VLC 和 ToDesk。
+把资料带到目标电脑后，在“安装后设置”中点击“打开离线安装包”，选择 `Software` 文件夹，按软件说明安装依赖并运行安装程序。有些安装程序仍需联网下载内容，这类软件需要提前从厂商获取完整离线安装包。
 
-开发软件在 [`data/packages.json`](data/packages.json) 中维护：Windows Terminal、PowerShell 7、Git、GitHub CLI、Visual Studio Code、Python 3.14、uv、Node.js LTS、Go、Rustup、.NET SDK 10、nvm for Windows、GitHub Copilot CLI、PowerToys、Oh My Posh、Coreutils for Windows、Windows App CLI、Docker Desktop 和 7-Zip。
+## 下载设置
 
-软件通过 WinGet 的唯一软件编号安装，已安装的软件跳过。Node.js LTS 与 nvm for Windows 需要二选一。安装后更新当前窗口的程序搜索目录，可继续设置软件下载源；nvm 安装后仍需安装具体的 Node.js 版本。
+“下载设置（可选）”可以为 WinGet（助手安装软件时使用的工具）和开发工具选择国内下载源。勾选工具后，点击“使用推荐国内源”；需要使用官方地址时，点击“恢复官方源”。这些设置只影响当前电脑，Windows 系统镜像仍从微软下载。
 
-## 软件下载源
+## 遇到问题
 
-| 工具 | 可选下载源 | 默认选择 | 修改范围 |
-| --- | --- | --- | --- |
-| WinGet | 中科大 USTC、官方 | 中科大 USTC | 用于查询软件的清单地址 |
-| pip | 清华 TUNA、中科大 USTC、阿里云、官方 | 清华 TUNA | 当前用户 pip 配置 |
-| uv | 清华 TUNA、中科大 USTC、阿里云、官方 | 清华 TUNA | 用户环境变量 `UV_DEFAULT_INDEX` |
-| npm | npmmirror、腾讯云、官方 | npmmirror | 用户 registry |
-| pnpm | npmmirror、腾讯云、官方 | npmmirror | 用户 registry |
-| Yarn | npmmirror、腾讯云、官方 | npmmirror | 当前用户的 Yarn 下载源配置 |
-| Go | Goproxy.cn、阿里云、官方 | Goproxy.cn | `go env -w GOPROXY` |
-| Cargo | 清华 TUNA、中科大 USTC、官方 | 清华 TUNA | `$CARGO_HOME/config.toml` |
+操作结果和错误原因显示在窗口下方。下载或安装未完成时，查看记录，处理提示中的原因后再次点击操作按钮。软件安装向导和 Windows 授权窗口需要在弹出的窗口中完成。
 
-下载源是 WinGet 和开发工具查询软件、下载软件包时使用的地址，在 [`data/mirrors.json`](data/mirrors.json) 中维护。缺少工具或权限时显示原因并跳过对应项。Cargo 已有 `config` 或自定义 `config.toml` 时跳过，恢复官方源时只删除本工具生成的配置。
+提示缺少 WinGet 时，在 Microsoft Store 安装或更新“应用安装程序”，然后重新打开助手。
 
-这些设置不用于下载 Windows 系统镜像。WinGet 下载源主要提供软件清单，软件安装包、组件和激活工具仍有各自的下载来源。恢复官方源表示恢复官方地址，原有私有地址需要自行保留。
+需要查看完整记录时，在文件资源管理器地址栏输入 `%LOCALAPPDATA%\WindowsSetupHelper\logs\`。
 
-## 命令行
+## 技术说明与许可
 
-以下命令在本地仓库目录执行。非交互操作使用 `-Yes`，预演使用 `-DryRun -Yes`。
+命令行参数、下载源详情、开发测试和部署方法见[技术说明](docs/advanced.md)。
 
-```powershell
-.\Start-DevSetup.ps1 -Action Prepare
-.\Start-DevSetup.ps1 -Action System
-.\Start-DevSetup.ps1 -Action Optimize
-.\Start-DevSetup.ps1 -Action Optimize -FullOptimization -DryRun -Yes
-.\Start-DevSetup.ps1 -Action AppList
-.\Start-DevSetup.ps1 -Action Apps -PackageIds Tencent.WeChat,VideoLAN.VLC -Yes
-.\Start-DevSetup.ps1 -Action List
-.\Start-DevSetup.ps1 -Action Install -PackageIds Git.Git,Microsoft.VisualStudioCode -Yes
-.\Start-DevSetup.ps1 -Action Mirrors -Managers pip,uv,cargo -Mirror TUNA -Yes
-.\Start-DevSetup.ps1 -Action Restore -Managers winget,pip,uv,npm,pnpm,yarn,go,cargo -Yes
-.\Start-DevSetup.ps1 -Action Apps -PackageIds Tencent.WeChat -DryRun -Yes
-```
-
-`Prepare` 和 `System` 打开对应的交互菜单；`Apps` 不指定软件编号时打开日常软件选择。`Mirrors` 不指定工具时选择全部八项，`-Mirror Auto` 使用推荐下载源。终端限制脚本执行时，可在脚本路径前添加 `powershell.exe -NoProfile -ExecutionPolicy Bypass -File`。
-
-## 开发与测试
-
-先生成发布文件，再运行测试：
-
-```shell
-python3 scripts/build-hosting.py
-```
-
-```powershell
-.\tests\Smoke.Tests.ps1
-.\tests\Behavior.Tests.ps1
-.\tests\Setup.Tests.ps1
-.\tests\Dialogs.Tests.ps1
-.\tests\Menu.Tests.ps1
-.\tests\Optimization.Tests.ps1
-.\tests\Bootstrap.Tests.ps1
-```
-
-GitHub Actions 在 Windows PowerShell 5.1 与 PowerShell 7 上验证清单、预演、配置读写、日志、备份、窗口选择、发布压缩包和启动流程。`tests/Online.Tests.ps1` 验证公开启动命令，在 Actions 页面手动运行工作流时执行；域名和托管生效后可运行此项。`tests/Downloads.Tests.ps1` 实际下载三个官方工具并校验文件。测试使用独立目录和样例程序验证调用，真实激活和启动盘写入由用户在工具中操作。
-
-装机准备在 `scripts/Preparation.ps1`，安装后设置和系统优化在 `scripts/System.ps1`，软件安装和镜像配置在 `Start-DevSetup.ps1`。系统优化测试逐项核对微软原脚本，并在独立测试注册表目录中验证写入。
-
-## Vercel 托管
-
-在 Vercel 导入 `RustyPiano/windows-setup-helper`，使用仓库根目录，生产分支选择 `main`。构建命令、发布目录、响应类型和缓存规则由根目录的 `vercel.json` 提供，控制台保留仓库配置即可。构建环境需要 Python 3，Vercel 已提供。
-
-`scripts/build-hosting.py` 在 `public` 中生成 `bootstrap.ps1` 和 `windows-setup-helper.zip`。压缩包包含主程序、功能脚本、软件清单、启动文件、说明和许可。`public` 是生成目录，不提交到 Git。
-
-在 Settings → Domains 添加 `setup.rustypiano.com`，到域名的 DNS 管理页面添加名称为 `setup` 的 CNAME 记录，目标填写 Vercel 显示的地址。等待域名和 HTTPS 验证通过，并确保正式域名允许匿名访问，无需登录或浏览器验证。
-
-关联仓库后，每次推送到 `main` 都会自动构建并更新正式域名；其他分支生成预览部署。构建脚本和 Vercel 配置随代码提交，后续无需逐次调整控制台。启动脚本和助手压缩包均由 Vercel 提供，软件安装包、系统镜像和第三方工具仍使用各自的下载地址。
-
-参考 [Vercel 仓库配置](https://vercel.com/docs/project-configuration/vercel-json)、[GitHub 自动部署](https://vercel.com/docs/git/vercel-for-github)和[域名配置](https://vercel.com/docs/domains/working-with-domains/add-a-domain)。
-
-## 来源
-
-- [Microsoft WindowsDeveloperConfig 系统配置](https://github.com/microsoft/WindowsDeveloperConfig/tree/fe21c03a486a1076c425720c1ebe4e25404e0e6b/windows-dev-config/steps)：系统、文件管理器、任务栏与搜索、Edge 配置，MIT License。
-- [微软 Windows 11 下载](https://www.microsoft.com/zh-cn/software-download/windows11)
-- [Rufus](https://rufus.ie/zh/)、[Ventoy](https://www.ventoy.net/cn/doc_start.html)
-- [Microsoft Activation Scripts](https://get.activated.win)
-- [DISM 驱动备份](https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/dism-driver-servicing-command-line-options-s14)、[PnPUtil 驱动安装](https://learn.microsoft.com/en-us/windows-hardware/drivers/devtest/pnputil-command-syntax)
-- [Robocopy](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/robocopy)
-- [WinGet 源](https://learn.microsoft.com/windows/package-manager/winget/source)、[中科大 WinGet 镜像](https://mirrors.ustc.edu.cn/help/winget-source.html)
-- [清华 PyPI](https://mirrors.tuna.tsinghua.edu.cn/help/pypi/)、[清华 Cargo](https://mirrors.tuna.tsinghua.edu.cn/help/crates.io-index/)
-
-## 许可
-
-MIT License。下载和启动的第三方软件使用各自的许可。
+本工具使用 MIT License。下载和启动的第三方软件使用各自的许可。

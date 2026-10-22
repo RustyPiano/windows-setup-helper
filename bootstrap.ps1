@@ -14,7 +14,9 @@
         Invoke-WebRequest -Uri $archiveUrl -OutFile $archive -UseBasicParsing -TimeoutSec 60
         Expand-Archive -LiteralPath $archive -DestinationPath $folder -Force
         $shell = (Get-Process -Id $PID).Path
-        & $shell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $folder 'windows-setup-helper-main/Start-DevSetup.ps1')
+        $entry = Join-Path $folder 'windows-setup-helper-main/Start-DevSetup.ps1'
+        if ([Console]::IsInputRedirected) { & $shell -NoProfile -ExecutionPolicy Bypass -File $entry -Action Menu }
+        else { & $shell -NoProfile -ExecutionPolicy Bypass -File $entry }
         if ($LASTEXITCODE -ne 0) { throw "Windows 装机助手已退出，退出代码：$LASTEXITCODE" }
     }
     finally {

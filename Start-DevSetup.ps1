@@ -1,10 +1,12 @@
 ﻿[CmdletBinding()]
 param(
-    [ValidateSet('Menu', 'List', 'Install', 'Mirrors', 'Restore', 'Prepare', 'System', 'Apps', 'AppList', 'Optimize')]
-    [string]$Action = 'Menu',
+    [ValidateSet('Desktop', 'Menu', 'List', 'Install', 'Mirrors', 'Restore', 'Prepare', 'System', 'Apps', 'AppList', 'Optimize')]
+    [string]$Action = 'Desktop',
 
     [string[]]$PackageIds = @(),
     [string[]]$Managers = @(),
+    [string]$InstallRoot = '',
+    [switch]$InteractiveInstall,
 
     [ValidateSet('Auto', 'USTC', 'TUNA', 'Aliyun', 'NpmMirror', 'Tencent', 'GoproxyCN', 'Official')]
     [string]$Mirror = 'Auto',
@@ -25,6 +27,8 @@ $script:ProjectRoot = $PSScriptRoot
 $script:SetupFolder = ''
 . (Join-Path $PSScriptRoot 'scripts/Preparation.ps1')
 . (Join-Path $PSScriptRoot 'scripts/System.ps1')
+. (Join-Path $PSScriptRoot 'scripts/DesktopTasks.ps1')
+. (Join-Path $PSScriptRoot 'scripts/Desktop.ps1')
 $script:MirrorCatalog = Get-Content (Join-Path $PSScriptRoot 'data/mirrors.json') -Raw -Encoding UTF8 | ConvertFrom-Json
 $script:ManagerNames = @('winget', 'pip', 'uv', 'npm', 'pnpm', 'yarn', 'go', 'cargo')
 $script:DryRunEnabled = [bool]$DryRun
@@ -216,8 +220,9 @@ function Test-Installed {
 }
 
 function Install-Packages {
-    param([object[]]$Items)
+    param([object[]]$Items, [string]$Location = $InstallRoot, [switch]$Interactive = $InteractiveInstall)
     if ($Items.Count -eq 0) { Write-Status '没有选中软件。'; return }
+    if ($Location -and -not [IO.Path]::IsPathRooted($Location)) { throw '请选择完整的安装目录，例如 D:\Applications。' }
     if (-not $script:DryRunEnabled -and -not (Find-Tool 'winget')) {
         throw '缺少 winget。请先从 Microsoft Store 安装“应用安装程序”(App Installer)。'
     }
@@ -250,11 +255,15 @@ function Install-Packages {
     }
     if ($pendingItems.Count -eq 0) { return }
     Write-Host "`n准备安装：$($pendingItems.name -join '、')"
+    if ($Location) { Write-Host "安装目录：$Location（每个软件使用单独的子目录；是否支持由安装程序决定）" }
     if (-not (Confirm-Selection)) { return }
     for ($i = 0; $i -lt $pendingItems.Count; $i++) {
         $item = $pendingItems[$i]
         Write-Status ('安装 {0}/{1}：{2}' -f ($i + 1), $pendingItems.Count, $item.name)
-        $result = Invoke-Tool 'winget' @('install', '--id', $item.id, '--exact', '--source', 'winget', '--accept-package-agreements', '--accept-source-agreements', '--disable-interactivity')
+        $arguments = @('install', '--id', $item.id, '--exact', '--source', 'winget', '--accept-package-agreements', '--accept-source-agreements', '--disable-interactivity')
+        if ($Location) { $arguments += @('--location', (Join-Path $Location $item.id)) }
+        if ($Interactive) { $arguments += '--interactive' }
+        $result = Invoke-Tool 'winget' $arguments
         Write-Result $item.name $result
     }
     if (-not $script:DryRunEnabled) {
@@ -619,12 +628,13 @@ try {
             if (Confirm-Selection) { Invoke-MirrorPlan $plan }
         }
         'Menu' { Show-Menu }
+        'Desktop' { Show-SetupDesktop }
     }
     $completed = $true
 }
 finally {
     Save-Log
-    if ($completed -and $Action -notin @('Menu', 'Prepare', 'System') -and $script:LogLines.Count -gt 0) { Show-Summary }
+    if ($completed -and $Action -notin @('Desktop', 'Menu', 'Prepare', 'System') -and $script:LogLines.Count -gt 0) { Show-Summary }
     elseif ($script:LogFile) { Write-Host "运行记录：$script:LogFile" }
 }
 if ($script:Failed -gt 0) { exit 1 }
