@@ -154,6 +154,9 @@ try {
                 $state.Folder.Text = $folder
                 $prepared = Get-DesktopPreparation
                 if ($prepared.Target.Architecture -ne 'arm64' -or $prepared.Target.IsCurrent) { throw '图形界面没有保存目标电脑信息。' }
+                $state.Tabs.SelectedIndex = 4
+                [Windows.Forms.Application]::DoEvents()
+                if (-not $state.Packages.developer.List.IsHandleCreated -or -not $state.Packages.developer.List.Visible) { throw '开发软件页面没有显示。' }
                 $rows = @($state.Packages.developer.List.Items)
                 $node = $rows | Where-Object { $_.Tag.id -eq 'OpenJS.NodeJS.LTS' }
                 $nvm = $rows | Where-Object { $_.Tag.id -eq 'CoreyButler.NVMforWindows' }
