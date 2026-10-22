@@ -2,9 +2,10 @@
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $bootstrap = Join-Path $root 'bootstrap.ps1'
+$bootstrapSource = Get-Content -LiteralPath $bootstrap -Raw -Encoding UTF8
 $tokens = $null
 $parseErrors = $null
-[void][System.Management.Automation.Language.Parser]::ParseFile($bootstrap, [ref]$tokens, [ref]$parseErrors)
+[void][System.Management.Automation.Language.Parser]::ParseInput($bootstrapSource, [ref]$tokens, [ref]$parseErrors)
 if ($parseErrors.Count -gt 0) { throw ($parseErrors | Out-String) }
 
 $testFolder = Join-Path $root ('.work/bootstrap-tests-' + [guid]::NewGuid().ToString('N'))
@@ -28,13 +29,13 @@ function Invoke-WebRequest {
 }
 
 try {
-    Get-Content -LiteralPath $bootstrap -Raw -Encoding UTF8 | Invoke-Expression
+    $bootstrapSource | Invoke-Expression
     if (-not (Test-Path $env:WINDEVPICKER_TEST_BOOTSTRAP_MARKER)) { throw '在线启动没有执行入口文件。' }
     Remove-Item -LiteralPath $env:WINDEVPICKER_TEST_BOOTSTRAP_MARKER
 
     $env:WINDEVPICKER_TEST_DOWNLOAD_FAIL = '1'
     $failed = $false
-    try { & $bootstrap -BaseUrl $baseUrl }
+    try { $bootstrapSource | Invoke-Expression }
     catch {
         if ($_.Exception.Message -notmatch 'download-failed') { throw }
         $failed = $true
@@ -44,7 +45,7 @@ try {
 
     $env:WINDEVPICKER_TEST_BOOTSTRAP_FAIL = '1'
     $failed = $false
-    try { & $bootstrap -BaseUrl $baseUrl }
+    try { $bootstrapSource | Invoke-Expression }
     catch {
         if ($_.Exception.Message -notmatch '退出代码：9') { throw }
         $failed = $true

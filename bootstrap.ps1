@@ -1,12 +1,7 @@
-﻿[CmdletBinding()]
-param(
-    [string]$BaseUrl = 'https://raw.githubusercontent.com/RustyPiano/win-dev-picker/main'
-)
-
 & {
-    param([string]$BaseUrl)
     Set-StrictMode -Version Latest
     $ErrorActionPreference = 'Stop'
+    $BaseUrl = 'https://raw.githubusercontent.com/RustyPiano/win-dev-picker/main'
 
     if ($env:OS -ne 'Windows_NT') { throw '在线安装助手仅支持 Windows。' }
     if (([uri]$BaseUrl).Scheme -ne 'https') { throw '下载地址必须使用 HTTPS。' }
@@ -26,4 +21,4 @@ param(
     finally {
         Remove-Item -LiteralPath $folder -Recurse -Force
     }
-} -BaseUrl $BaseUrl
+}
