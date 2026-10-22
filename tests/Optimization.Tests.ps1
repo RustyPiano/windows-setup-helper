@@ -2,7 +2,7 @@
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $entry = Join-Path $root 'Start-DevSetup.ps1'
-$catalog = @(Get-Content (Join-Path $root 'data/tweaks.json') -Raw -Encoding UTF8 | ConvertFrom-Json)
+$catalog = Get-Content (Join-Path $root 'data/tweaks.json') -Raw -Encoding UTF8 | ConvertFrom-Json
 $testFolder = Join-Path $root ('.work/optimization-tests-' + [guid]::NewGuid().ToString('N'))
 [void](New-Item -ItemType Directory -Path $testFolder -Force)
 
@@ -10,7 +10,7 @@ try {
     & {
         $script:OriginalSettings = @()
         $script:DevConfigAction = 'Full'
-        function New-DevConfigRegistryStep { param([hashtable]$Setting) return $Setting }
+        function New-DevConfigRegistryStep { param([hashtable]$Setting, [switch]$Reset) return $Setting }
         function Invoke-DevConfigSteps { param([object[]]$Steps) $script:OriginalSettings += $Steps }
         $base = 'https://raw.githubusercontent.com/microsoft/WindowsDeveloperConfig/fe21c03a486a1076c425720c1ebe4e25404e0e6b/windows-dev-config/steps'
         foreach ($name in @('registry-system', 'registry-explorer', 'registry-taskbar-search', 'edge')) {
