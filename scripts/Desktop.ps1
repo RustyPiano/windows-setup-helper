@@ -129,7 +129,7 @@ function Update-DesktopGuide {
     foreach ($button in @($view.Actions.Controls)) { $button.Dispose() }
     $view.Actions.Controls.Clear()
     foreach ($action in $step.actions) {
-        $view.Actions.Controls.Add((New-DesktopButton $action.label $action.operation @{ Guide = $Key; Index = $index }))
+        $view.Actions.Controls.Add((New-DesktopButton $action.label $action.operation @{ Guide = $Key; Index = $index } -Primary:($view.Actions.Controls.Count -eq 0)))
     }
     $view.Hash.Visible = @($step.actions.operation) -contains 'VerifyIso'
     $view.HashLabel.Visible = $view.Hash.Visible
@@ -144,7 +144,7 @@ function Set-DesktopStepState {
     if ($null -eq $Context -or -not $Context.ContainsKey('Guide')) { return }
     $view = $script:Desktop.Guides[$Context.Guide]
     $view.States[$Context.Index] = $Status
-    $view.List.Items[$Context.Index] = '{0}. {1}' -f ($Context.Index + 1), $view.Steps[$Context.Index].title
+    $view.List.Items[$Context.Index] = '{0}. {1} · {2}' -f ($Context.Index + 1), $view.Steps[$Context.Index].title, $Status
     Update-DesktopGuide $Context.Guide
 }
 
@@ -165,11 +165,11 @@ function Add-DesktopGuide {
     $list = New-Object Windows.Forms.ListBox
     $list.Dock = 'Fill'
     $list.IntegralHeight = $false
-    $list.HorizontalScrollbar = $true
+    $list.HorizontalScrollbar = $false
     $list.BorderStyle = 'None'
     $list.BackColor = [Drawing.ColorTranslator]::FromHtml('#F3F6FA')
     $list.Font = New-Object Drawing.Font('Microsoft YaHei UI', 9)
-    $list.ItemHeight = 36
+    $list.ItemHeight = 52
     $list.DrawMode = 'OwnerDrawFixed'
     $list.Add_DrawItem({
         param($sender, $eventArgs)
@@ -178,7 +178,13 @@ function Add-DesktopGuide {
         $bounds = $eventArgs.Bounds
         $bounds.X += 10
         $bounds.Width -= 10
-        [Windows.Forms.TextRenderer]::DrawText($eventArgs.Graphics, [string]$sender.Items[$eventArgs.Index], $sender.Font, $bounds, $eventArgs.ForeColor, ([Windows.Forms.TextFormatFlags]::VerticalCenter -bor [Windows.Forms.TextFormatFlags]::EndEllipsis))
+        $bounds.Height = 26
+        $view = $script:Desktop.Guides[$sender.Tag]
+        $text = '{0}. {1}' -f ($eventArgs.Index + 1), $view.Steps[$eventArgs.Index].title
+        [Windows.Forms.TextRenderer]::DrawText($eventArgs.Graphics, $text, $sender.Font, $bounds, $eventArgs.ForeColor, ([Windows.Forms.TextFormatFlags]::VerticalCenter -bor [Windows.Forms.TextFormatFlags]::EndEllipsis))
+        $bounds.Y += 26
+        $bounds.Height = 22
+        [Windows.Forms.TextRenderer]::DrawText($eventArgs.Graphics, $view.States[$eventArgs.Index], $sender.Font, $bounds, $eventArgs.ForeColor)
         $eventArgs.DrawFocusRectangle()
     })
     $list.Tag = $Key
@@ -214,7 +220,7 @@ function Add-DesktopGuide {
     $layout.Controls.Add($content, 1, 0)
     $Tab.Controls.Add($layout)
     $script:Desktop.Guides[$Key] = @{ List = $list; Title = $title; Body = $body; Hash = $hash; HashLabel = $hashLabel; Actions = $actions; Previous = $previous; Next = $next; Done = $done; Steps = $Steps; States = @($Steps | ForEach-Object { '未完成' }) }
-    for ($i = 0; $i -lt $Steps.Count; $i++) { [void]$list.Items.Add(('{0}. {1}' -f ($i + 1), $Steps[$i].title)) }
+    for ($i = 0; $i -lt $Steps.Count; $i++) { [void]$list.Items.Add(('{0}. {1} · 未完成' -f ($i + 1), $Steps[$i].title)) }
     $list.SelectedIndex = 0
 }
 
