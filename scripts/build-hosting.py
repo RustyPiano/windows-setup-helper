@@ -18,4 +18,3 @@ with ZipFile(output / "windows-setup-helper.zip", "w", ZIP_DEFLATED) as archive:
         archive.write(file, f"windows-setup-helper-main/{file.relative_to(root).as_posix()}")
 
 copyfile(root / "bootstrap.ps1", output / "bootstrap.ps1")
-print(f"已生成发布文件：{output}")

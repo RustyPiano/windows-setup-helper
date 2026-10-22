@@ -6,3 +6,4 @@
 .work/
 public/
 .vercel/
+.env.local
