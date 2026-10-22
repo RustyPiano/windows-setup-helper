@@ -4,7 +4,6 @@
     $BaseUrl = 'https://raw.githubusercontent.com/RustyPiano/win-dev-picker/main'
 
     if ($env:OS -ne 'Windows_NT') { throw '在线安装助手仅支持 Windows。' }
-    if (([uri]$BaseUrl).Scheme -ne 'https') { throw '下载地址必须使用 HTTPS。' }
     [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
 
     $folder = Join-Path $env:LOCALAPPDATA ('WinDevPicker/downloads/' + [guid]::NewGuid().ToString('N'))
