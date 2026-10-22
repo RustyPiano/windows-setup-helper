@@ -151,10 +151,10 @@ try {
             Copy-Item -LiteralPath (Join-Path $root $name) -Destination $script:ProjectRoot -Recurse
         }
         Copy-SetupLauncher $testFolder
-        $launcher = Join-Path $testFolder 'WinDevPicker/Launch-Online.cmd'
+        $launcher = Join-Path $testFolder 'WindowsSetupHelper/Launch-Online.cmd'
         if ((Get-FileHash $launcher).Hash -ne (Get-FileHash (Join-Path $root 'Launch-Online.cmd')).Hash) { throw '复制的在线启动入口不一致。' }
         $shell = (Get-Process -Id $PID).Path
-        $output = & $shell -NoProfile -File (Join-Path $testFolder 'WinDevPicker/Start-DevSetup.ps1') -Action AppList -DryRun
+        $output = & $shell -NoProfile -File (Join-Path $testFolder 'WindowsSetupHelper/Start-DevSetup.ps1') -Action AppList -DryRun
         if ($LASTEXITCODE -ne 0 -or ($output -join "`n") -notmatch 'Tencent.WeChat') { throw '复制的助手无法独立启动。' }
     }
 

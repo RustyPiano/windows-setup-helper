@@ -1,4 +1,4 @@
-name: PowerShell tests
+name: Windows 装机助手测试
 
 on:
   push:
@@ -15,6 +15,7 @@ jobs:
           .\tests\Smoke.Tests.ps1
           .\tests\Behavior.Tests.ps1
           .\tests\Setup.Tests.ps1
+          .\tests\Dialogs.Tests.ps1
           .\tests\Bootstrap.Tests.ps1
       - name: PowerShell 7
         shell: pwsh
@@ -22,10 +23,12 @@ jobs:
           ./tests/Smoke.Tests.ps1
           ./tests/Behavior.Tests.ps1
           ./tests/Setup.Tests.ps1
+          ./tests/Dialogs.Tests.ps1
           ./tests/Bootstrap.Tests.ps1
-      - name: Online startup
+      - name: 在线启动
+        if: github.ref == 'refs/heads/main'
         shell: powershell
         run: .\tests\Online.Tests.ps1
-      - name: Official tool downloads
+      - name: 官方工具下载与校验
         shell: powershell
         run: .\tests\Downloads.Tests.ps1

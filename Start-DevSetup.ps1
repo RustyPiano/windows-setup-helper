@@ -46,7 +46,7 @@ function Write-Status {
 function Save-Log {
     if ($script:DryRunEnabled -or $script:LogLines.Count -eq 0) { return }
     $base = if ($env:LOCALAPPDATA) { $env:LOCALAPPDATA } else { $HOME }
-    $folder = Join-Path $base 'WinDevPicker/logs'
+    $folder = Join-Path $base 'WindowsSetupHelper/logs'
     if (-not (Test-Path -LiteralPath $folder)) { New-Item -ItemType Directory -Path $folder -Force | Out-Null }
     if (-not $script:LogFile) { $script:LogFile = Join-Path $folder ('setup-{0}.log' -f (Get-Date -Format 'yyyyMMdd-HHmmss-fff')) }
     [System.IO.File]::WriteAllLines($script:LogFile, [string[]]$script:LogLines, [System.Text.UTF8Encoding]::new($false))
@@ -62,7 +62,8 @@ function Write-Result {
 
 function Show-Summary {
     param([int]$Succeeded = $script:Succeeded, [int]$Skipped = $script:Skipped, [int]$Failed = $script:Failed)
-    if ($script:DryRunEnabled) { Write-Host "`n预演完成，未执行更改。"; return }
+    if ($script:DryRunEnabled) { return }
+    if ($Succeeded + $Skipped + $Failed -eq 0) { Save-Log; return }
     Write-Host ("`n操作结果：成功 {0}，跳过 {1}，失败 {2}" -f $Succeeded, $Skipped, $Failed)
     Save-Log
     if ($script:LogFile) { Write-Host "运行记录：$script:LogFile" }
@@ -240,7 +241,7 @@ function Get-MirrorOption {
     if ($null -eq $config) { throw "未知的包管理器：$Manager" }
     if ($Key -eq 'Auto') { $Key = $config.recommended }
     $option = $config.options | Where-Object { $_.key -ieq $Key } | Select-Object -First 1
-    if (-not $option) { throw "$Manager 不提供 $Key 镜像，请从该包管理器支持的镜像中选择。" }
+    if (-not $option) { throw "$Manager 不支持 $Key 下载源，请选择该工具支持的地址。" }
     return $option
 }
 
@@ -277,16 +278,18 @@ function Set-UserVariable {
 }
 
 function Get-CargoTemplate {
-    param([string]$Url)
+    param([string]$Url, [switch]$Legacy)
+    $header = if ($Legacy) { '# Managed by WinDevPicker. Delete this file to use the default crates.io source.' } else { '# 由 Windows 装机助手管理，删除此文件即可恢复 crates.io 官方源。' }
+    $sourceName = if ($Legacy) { 'win-dev-picker' } else { 'windows-setup-helper' }
     return (@(
-        '# Managed by WinDevPicker. Delete this file to use the default crates.io source.',
+        $header,
         '[source.crates-io]',
-        'replace-with = "win-dev-picker"',
+        ('replace-with = "{0}"' -f $sourceName),
         '',
-        '[source.win-dev-picker]',
+        ('[source.{0}]' -f $sourceName),
         ('registry = "{0}"' -f $Url),
         '',
-        '[registries.win-dev-picker]',
+        ('[registries.{0}]' -f $sourceName),
         ('index = "{0}"' -f $Url),
         ''
     ) -join "`n")
@@ -307,7 +310,10 @@ function Set-CargoMirror {
     }
     if (Test-Path -LiteralPath $file) {
         $old = Get-Content -LiteralPath $file -Raw -Encoding UTF8
-        $managedTemplates = @($script:MirrorCatalog.cargo.options | Where-Object { $_.key -ne 'Official' } | ForEach-Object { Get-CargoTemplate $_.url })
+        $managedTemplates = @($script:MirrorCatalog.cargo.options | Where-Object { $_.key -ne 'Official' } | ForEach-Object {
+            Get-CargoTemplate $_.url
+            Get-CargoTemplate $_.url -Legacy
+        })
         if ($managedTemplates -cnotcontains $old) {
             Write-Status "跳过 Cargo：$file 已存在自定义内容，请手动维护 [source.crates-io] 配置。" 'Warn'
             return $null
@@ -321,7 +327,7 @@ function Set-CargoMirror {
     if (-not (Test-Path -LiteralPath $cargoHome)) { New-Item -Path $cargoHome -ItemType Directory -Force | Out-Null }
     $content = Get-CargoTemplate $Url
     [System.IO.File]::WriteAllText($file, $content, [System.Text.UTF8Encoding]::new($false))
-    Write-Status "Cargo 镜像已保存：$file" 'Success'
+    Write-Status "Cargo 下载源已保存：$file" 'Success'
     return $true
 }
 
@@ -333,7 +339,7 @@ function Set-WingetMirror {
         return $true
     }
     if (-not (Find-Tool 'winget')) {
-        Write-Status '未找到 winget，跳过 WinGet 镜像配置。' 'Warn'
+        Write-Status '未找到 winget，跳过 WinGet 下载源设置。' 'Warn'
         return $null
     }
     if (-not (Test-Administrator)) {
@@ -344,7 +350,7 @@ function Set-WingetMirror {
     $versionText = (& $winget --version | Out-String).Trim()
     $versionMatch = [regex]::Match($versionText, 'v?(\d+)\.(\d+)')
     if ($LASTEXITCODE -ne 0 -or -not $versionMatch.Success) {
-        throw '无法获取 WinGet 版本，已取消修改镜像。'
+        throw '无法获取 WinGet 版本，已取消修改下载源。'
     }
     $major = [int]$versionMatch.Groups[1].Value
     $minor = [int]$versionMatch.Groups[2].Value
@@ -355,13 +361,13 @@ function Set-WingetMirror {
     $oldSourceOutput = & $winget source export --name winget 2>&1
     if ($LASTEXITCODE -ne 0) { throw '无法读取当前 WinGet 源，已取消修改。' }
     $oldSource = ($oldSourceOutput -join "`n") | ConvertFrom-Json
-    if ($oldSource.Arg -eq $Url) { Write-Status 'WinGet 已使用所选镜像。'; return $null }
+    if ($oldSource.Arg -eq $Url) { Write-Status 'WinGet 已使用所选下载源。'; return $null }
     if (-not (Invoke-Tool 'winget' @('source', 'remove', '--name', 'winget'))) { return $false }
     $newArgs = @('source', 'add', '--name', 'winget', '--arg', $Url)
     if ($supportsTrustLevel) { $newArgs += @('--trust-level', 'trusted') }
     $newArgs += '--accept-source-agreements'
     if (Invoke-Tool 'winget' $newArgs) { return $true }
-    Write-Status '镜像添加失败，尝试恢复原有 WinGet 源。' 'Warn'
+    Write-Status '添加下载源失败，尝试恢复原有 WinGet 源。' 'Warn'
     $restoreArgs = @('source', 'add', '--name', 'winget', '--arg', [string]$oldSource.Arg)
     if ($oldSource.Type) { $restoreArgs += @('--type', [string]$oldSource.Type) }
     if ($supportsTrustLevel -and @($oldSource.TrustLevel) -contains 'Trusted') { $restoreArgs += @('--trust-level', 'trusted') }
@@ -373,7 +379,8 @@ function Set-WingetMirror {
 function Set-YarnMirror {
     param([AllowNull()][string]$Url)
     if ($script:DryRunEnabled) {
-        Write-Status '[预演] Yarn 1 设置 registry；Yarn 2+ 设置 home 的 npmRegistryServer'
+        if ($Url) { Write-Status "[预演] 设置 Yarn 下载源：$Url" }
+        else { Write-Status '[预演] 恢复 Yarn 官方下载源' }
         return $true
     }
     $tool = Find-Tool 'yarn'
@@ -436,12 +443,12 @@ function Invoke-MirrorPlan {
 
 function Show-MirrorPlan {
     param([object[]]$Plan)
-    Write-Host "`n本次镜像配置："
+    Write-Host "`n本次软件下载源设置："
     foreach ($item in $Plan) { Write-Host ('  {0,-7} {1,-12} {2}' -f $item.Manager, $item.Name, $item.Url) }
     if (-not $script:DryRunEnabled -and @($Plan | Where-Object { $_.Manager -eq 'winget' }).Count -gt 0 -and -not (Test-Administrator)) {
         Write-Host 'WinGet 源修改需要管理员权限，本次会跳过该项；需要修改时请以管理员身份启动。' -ForegroundColor Yellow
     }
-    Write-Host '镜像配置用于相应的软件源；软件安装包和额外组件仍可能从境外服务器下载。'
+    Write-Host '这些地址供 WinGet 和开发工具查询软件或下载软件包，不用于下载 Windows 系统镜像。'
 }
 
 function New-MirrorPlan {
@@ -459,15 +466,15 @@ function Read-MirrorSelection {
     $plan = @()
     foreach ($manager in $Names) {
         $config = $script:MirrorCatalog.$manager
-        Write-Host "`n[$manager] 可选镜像："
+        Write-Host "`n[$manager] 可选下载源："
         for ($i = 0; $i -lt $config.options.Count; $i++) {
             $option = $config.options[$i]
             $preferred = if ($option.key -eq $config.recommended) { '（推荐）' } else { '' }
             Write-Host ('  {0}. {1}{2}  {3}' -f ($i + 1), $option.name, $preferred, $option.url)
         }
-        $indices = @(Select-Numbers -Prompt "为 $manager 选择一个镜像" -Count $config.options.Count)
+        $indices = @(Select-Numbers -Prompt "为 $manager 选择一个下载源" -Count $config.options.Count)
         if ($indices.Count -eq 0) { continue }
-        if ($indices.Count -ne 1) { Write-Status '每个包管理器只能选择一个镜像，采用第一项。' 'Warn' }
+        if ($indices.Count -ne 1) { Write-Status '每个工具只能选择一个下载源，采用第一项。' 'Warn' }
         $option = $config.options[$indices[0] - 1]
         $plan += [pscustomobject]@{ Manager = $manager; Key = $option.key; Name = $option.name; Url = $option.url }
     }
@@ -477,14 +484,14 @@ function Read-MirrorSelection {
 function Show-Menu {
     while ($true) {
         Write-Host "`n========== Windows 装机助手 ==========" -ForegroundColor Cyan
-        Write-Host '1. 装机准备（镜像、启动盘、备份）'
+        Write-Host '1. 装机准备（系统镜像、启动盘、备份）'
         Write-Host '2. 安装后配置（驱动、更新、激活、系统设置）'
         Write-Host '3. 安装日常软件'
         Write-Host '4. 安装开发软件'
         Write-Host '5. 查看开发软件清单'
-        Write-Host '6. 一键配置推荐国内镜像'
-        Write-Host '7. 自选包管理器和镜像'
-        Write-Host '8. 恢复官方镜像（按包管理器选择）'
+        Write-Host '6. 设置推荐的国内软件下载源'
+        Write-Host '7. 自选工具和软件下载源'
+        Write-Host '8. 恢复软件的官方下载源'
         Write-Host '0. 退出'
         $choice = (Read-Host '请输入操作序号').Trim()
         $before = @($script:Succeeded, $script:Skipped, $script:Failed)
@@ -501,7 +508,7 @@ function Show-Menu {
             }
             '7' {
                 for ($i = 0; $i -lt $script:ManagerNames.Count; $i++) { Write-Host ('{0}. {1}' -f ($i + 1), $script:ManagerNames[$i]) }
-                $indices = @(Select-Numbers -Prompt '选择需要配置的包管理器' -Count $script:ManagerNames.Count)
+                $indices = @(Select-Numbers -Prompt '选择需要设置下载源的工具' -Count $script:ManagerNames.Count)
                 if ($indices.Count -eq 0) { break }
                 $names = @($indices | ForEach-Object { $script:ManagerNames[$_ - 1] })
                 $plan = @(Read-MirrorSelection $names)
@@ -509,7 +516,7 @@ function Show-Menu {
             }
             '8' {
                 for ($i = 0; $i -lt $script:ManagerNames.Count; $i++) { Write-Host ('{0}. {1}' -f ($i + 1), $script:ManagerNames[$i]) }
-                $indices = @(Select-Numbers -Prompt '选择需要恢复的包管理器' -Count $script:ManagerNames.Count)
+                $indices = @(Select-Numbers -Prompt '选择需要恢复官方下载源的工具' -Count $script:ManagerNames.Count)
                 if ($indices.Count -eq 0) { break }
                 $names = @($indices | ForEach-Object { $script:ManagerNames[$_ - 1] })
                 $plan = @(New-MirrorPlan -Names $names -Key 'Official')
@@ -527,7 +534,7 @@ function Show-Menu {
 }
 
 if (-not $script:DryRunEnabled -and $env:OS -ne 'Windows_NT') {
-    throw '实际安装和镜像配置仅支持 Windows。其他系统可使用 -DryRun 查看操作计划。'
+    throw 'Windows 装机助手仅支持 Windows。其他系统可使用 -DryRun 查看操作计划。'
 }
 
 $completed = $false

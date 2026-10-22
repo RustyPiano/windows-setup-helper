@@ -9,7 +9,7 @@ $parseErrors = $null
 if ($parseErrors.Count -gt 0) { throw ($parseErrors | Out-String) }
 
 $testFolder = Join-Path $root ('.work/bootstrap-tests-' + [guid]::NewGuid().ToString('N'))
-$payload = Join-Path $testFolder 'win-dev-picker-main'
+$payload = Join-Path $testFolder 'windows-setup-helper-main'
 [void](New-Item -ItemType Directory -Path (Join-Path $payload 'data') -Force)
 [void](New-Item -ItemType Directory -Path (Join-Path $payload 'scripts') -Force)
 Copy-Item (Join-Path $PSScriptRoot 'fixtures/BootstrapEntry.ps1') (Join-Path $payload 'Start-DevSetup.ps1')
@@ -23,7 +23,7 @@ $originalOS = $env:OS
 $env:LOCALAPPDATA = Join-Path $testFolder 'appdata'
 $env:OS = 'Windows_NT'
 $env:WINDEVPICKER_TEST_BOOTSTRAP_MARKER = Join-Path $testFolder 'started.txt'
-$archiveUrl = 'https://github.com/RustyPiano/win-dev-picker/archive/refs/heads/main.zip'
+$archiveUrl = 'https://github.com/RustyPiano/windows-setup-helper/archive/refs/heads/main.zip'
 
 function Invoke-WebRequest {
     param([string]$Uri, [string]$OutFile, [switch]$UseBasicParsing, [int]$TimeoutSec)
@@ -55,7 +55,7 @@ try {
         $failed = $true
     }
     if (-not $failed) { throw '入口执行失败没有向调用者报告。' }
-    if (@(Get-ChildItem (Join-Path $env:LOCALAPPDATA 'WinDevPicker/downloads') -Directory).Count -ne 0) { throw '下载文件没有清理。' }
+    if (@(Get-ChildItem (Join-Path $env:LOCALAPPDATA 'WindowsSetupHelper/downloads') -Directory).Count -ne 0) { throw '下载文件没有清理。' }
     Write-Host '在线启动测试通过：完整下载后启动、下载失败终止、入口错误传播、下载文件清理。' -ForegroundColor Green
 }
 finally {

@@ -41,6 +41,10 @@ try {
         [void](Set-CargoMirror $script:MirrorCatalog.cargo.options[0].url)
         [void](Set-CargoMirror $script:MirrorCatalog.cargo.options[1].url)
         if ([IO.File]::ReadAllText($configFile) -notmatch 'mirrors.ustc.edu.cn') { throw 'Cargo 已管理配置更新失败。' }
+        [IO.File]::WriteAllText($configFile, (Get-CargoTemplate $script:MirrorCatalog.cargo.options[0].url -Legacy))
+        [void](Set-CargoMirror $script:MirrorCatalog.cargo.options[1].url)
+        $updatedContent = [IO.File]::ReadAllText($configFile)
+        if ($updatedContent -notmatch 'source.windows-setup-helper' -or $updatedContent -notmatch 'Windows 装机助手管理') { throw '已有 Cargo 配置未被正确识别和更新。' }
         [void](Set-CargoMirror $null)
         if (Test-Path $configFile) { throw 'Cargo 官方源恢复失败。' }
         [IO.File]::WriteAllText($configFile, "[build]`njobs = 2`n")
@@ -71,9 +75,9 @@ try {
         function Find-Tool { return 'winget' }
         function Test-Installed { return $false }
         function Invoke-Tool { return $true }
-        $env:PATH = $originalPath + ';WinDevPickerTestPath'
+        $env:PATH = $originalPath + ';WindowsSetupHelperTestPath'
         Install-Packages @(Get-RequestedPackages @('Git.Git'))
-        if (($env:PATH -split ';') -notcontains 'WinDevPickerTestPath') { throw '刷新 PATH 丢失了当前进程的目录。' }
+        if (($env:PATH -split ';') -notcontains 'WindowsSetupHelperTestPath') { throw '刷新 PATH 丢失了当前进程的目录。' }
         foreach ($scope in @('Machine', 'User')) {
             foreach ($path in ([Environment]::GetEnvironmentVariable('Path', $scope) -split ';')) {
                 if ($path -and ($env:PATH -split ';') -notcontains $path) { throw "刷新 PATH 缺少目录：$path" }
@@ -122,7 +126,7 @@ try {
             & $shell -NoProfile -File $entry -Action Mirrors -Managers cargo -Mirror TUNA -Yes 2>&1
             if ($LASTEXITCODE -eq 0) { throw '文件写入异常没有使脚本失败。' }
         }
-        $logs = @(Get-ChildItem (Join-Path $env:LOCALAPPDATA 'WinDevPicker/logs') -Filter '*.log')
+        $logs = @(Get-ChildItem (Join-Path $env:LOCALAPPDATA 'WindowsSetupHelper/logs') -Filter '*.log')
         if ($logs.Count -ne 1 -or (Get-Content $logs[0].FullName -Raw -Encoding UTF8) -notmatch '处理：cargo') { throw '异常退出没有保存操作记录。' }
         if (($output -join "`n") -match '操作结果：成功 0，跳过 0，失败 0') { throw '异常退出显示了错误的完成统计。' }
     }

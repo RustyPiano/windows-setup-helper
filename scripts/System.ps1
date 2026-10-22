@@ -3,7 +3,14 @@
     $computer = Get-CimInstance -ClassName Win32_ComputerSystem
     $system = Get-CimInstance -ClassName Win32_OperatingSystem
     Write-Status "电脑：$($computer.Manufacturer) $($computer.Model)"
-    Write-Status "系统：$($system.Caption)；版本：$($system.Version)；架构：$($system.OSArchitecture)"
+    $architecture = if ($env:PROCESSOR_ARCHITEW6432) { $env:PROCESSOR_ARCHITEW6432 } else { $env:PROCESSOR_ARCHITECTURE }
+    $processor = switch ($architecture) {
+        'AMD64' { 'Intel / AMD 64 位（x64）' }
+        'ARM64' { 'Arm 处理器（Arm64）' }
+        'x86' { '32 位（x86）' }
+        default { $architecture }
+    }
+    Write-Status "系统：$($system.Caption)；版本：$($system.Version)；处理器类型：$processor"
     foreach ($volume in (Get-Volume | Where-Object { $_.DriveLetter })) {
         Write-Status ('{0}: {1}；可用 {2:N1} GB / 总容量 {3:N1} GB' -f $volume.DriveLetter, $volume.FileSystemLabel, ($volume.SizeRemaining / 1GB), ($volume.Size / 1GB))
     }
@@ -24,7 +31,7 @@ function Import-SetupDrivers {
 function Show-ActivationStatus {
     if ($script:DryRunEnabled) { Write-Status '[预演] 查看 Windows 激活状态'; return }
     $licenses = @(Get-CimInstance -ClassName SoftwareLicensingProduct -Filter "ApplicationID='55c92734-d682-4d71-983e-d6ec3f16059f'" | Where-Object { $_.PartialProductKey })
-    if ($licenses.Count -eq 0) { Write-Status '未读取到 Windows 许可记录。' 'Warn'; return }
+    if ($licenses.Count -eq 0) { Write-Status '未读取到 Windows 激活状态。' 'Warn'; return }
     $states = @('未授权', '已授权', '初始宽限期', '附加宽限期', '非正版宽限期', '通知状态', '延长宽限期')
     foreach ($license in $licenses) { Write-Status ("{0}：{1}" -f $license.Name, $states[[int]$license.LicenseStatus]) }
 }
@@ -70,7 +77,10 @@ function Show-SystemMenu {
         $choice = (Read-Host '请输入操作序号').Trim()
         switch ($choice) {
             '1' { Show-SetupComputer }
-            '2' { Import-SetupDrivers ((Read-Host '驱动备份目录').Trim().Trim('"')) }
+            '2' {
+                $source = Select-SetupPath '选择之前保存的驱动备份文件夹'
+                if ($source) { Import-SetupDrivers $source }
+            }
             '3' { Open-SetupPage 'Windows 更新' 'ms-settings:windowsupdate' }
             '4' { Show-ActivationStatus }
             '5' { Start-Activation }

@@ -1,9 +1,32 @@
-﻿function Get-SetupFolder {
+﻿function Select-SetupPath {
+    param([string]$Title, [switch]$File)
+    Add-Type -AssemblyName System.Windows.Forms
+    if ($File) {
+        $dialog = New-Object System.Windows.Forms.OpenFileDialog
+        $dialog.Title = $Title
+        $dialog.Filter = '系统镜像文件（*.iso）|*.iso'
+        $dialog.CheckFileExists = $true
+        $dialog.RestoreDirectory = $true
+    }
+    else {
+        $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
+        $dialog.Description = $Title
+        $dialog.RootFolder = [Environment+SpecialFolder]::MyComputer
+        $dialog.ShowNewFolderButton = -not $script:DryRunEnabled
+    }
+    try {
+        if ($dialog.ShowDialog() -ne 'OK') { return $null }
+        if ($File) { return $dialog.FileName }
+        return $dialog.SelectedPath
+    }
+    finally { $dialog.Dispose() }
+}
+
+function Get-SetupFolder {
     if (-not $script:SetupFolder) {
-        $defaultFolder = Join-Path $HOME 'Downloads/WinDevPicker'
-        $folder = (Read-Host "镜像和工具保存目录（回车使用 $defaultFolder）").Trim().Trim('"')
-        $selectedFolder = if ($folder) { $folder } else { $defaultFolder }
-        $script:SetupFolder = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($selectedFolder)
+        $folder = Select-SetupPath '选择系统镜像和工具的保存文件夹'
+        if (-not $folder) { return $null }
+        $script:SetupFolder = $folder
     }
     if (-not $script:DryRunEnabled) { [void](New-Item -ItemType Directory -Path $script:SetupFolder -Force) }
     return $script:SetupFolder
@@ -30,7 +53,9 @@ function Start-SetupProgram {
 
 function Receive-SetupFile {
     param([string]$Uri, [string]$Name, [string]$SHA256 = '')
-    $file = Join-Path (Get-SetupFolder) $Name
+    $folder = Get-SetupFolder
+    if (-not $folder) { return $null }
+    $file = Join-Path $folder $Name
     Write-Status "下载：$Uri；保存到：$file"
     if ($script:DryRunEnabled) { return $file }
     Invoke-WebRequest -Uri $Uri -OutFile ($file + '.download') -UseBasicParsing -TimeoutSec 120
@@ -41,13 +66,14 @@ function Receive-SetupFile {
 
 function Start-WindowsDownload {
     if ($env:PROCESSOR_ARCHITECTURE -eq 'ARM64' -or $env:PROCESSOR_ARCHITEW6432 -eq 'ARM64') {
-        Open-SetupPage '微软 Arm64 ISO 下载页' 'https://www.microsoft.com/zh-cn/software-download/windows11arm64'
+        Open-SetupPage '微软系统镜像下载页（适用于 Arm 处理器电脑）' 'https://www.microsoft.com/zh-cn/software-download/windows11arm64'
         return
     }
+    Write-Host '系统镜像是安装 Windows 使用的 ISO 文件。'
     Write-Host '在微软媒体创建工具中选择“为另一台电脑创建安装介质”，再选择“ISO 文件”。'
-    Write-Host 'Arm64 镜像请使用菜单中的微软官方下载页。'
     if (-not (Confirm-Selection)) { return }
     $file = Receive-SetupFile 'https://go.microsoft.com/fwlink/?linkid=2156295' 'MediaCreationTool.exe'
+    if (-not $file) { return }
     if (-not $script:DryRunEnabled) {
         $signature = Get-AuthenticodeSignature -FilePath $file
         if ($signature.Status -ne 'Valid' -or $signature.SignerCertificate.Subject -notlike '*O=Microsoft Corporation,*') { throw '微软媒体创建工具的签名验证失败。' }
@@ -74,8 +100,9 @@ function Start-BootTool {
     }
     else { $pattern = '^ventoy-[\d.]+-windows\.zip$' }
     $asset = $release.assets | Where-Object { $_.name -match $pattern } | Select-Object -First 1
-    if (-not $asset -or $asset.digest -notmatch '^sha256:([a-fA-F0-9]{64})$') { throw "未找到具有 SHA-256 校验值的 $Name 安装文件。" }
+    if (-not $asset -or $asset.digest -notmatch '^sha256:([a-fA-F0-9]{64})$') { throw "未找到包含文件校验信息的 $Name 安装文件。" }
     $file = Receive-SetupFile $asset.browser_download_url $asset.name $asset.digest.Substring(7)
+    if (-not $file) { return }
     if ($Name -eq 'Ventoy') {
         $folder = Join-Path (Get-SetupFolder) $release.tag_name
         Expand-Archive -LiteralPath $file -DestinationPath $folder -Force
@@ -89,12 +116,12 @@ function Start-BootTool {
 
 function Test-IsoFile {
     param([string]$Path, [string]$ExpectedHash)
-    if ($ExpectedHash -notmatch '^[a-fA-F0-9]{64}$') { throw '请输入微软公布的完整 SHA-256 校验值，共 64 个字符。' }
-    Write-Status "校验镜像：$Path"
+    if ($ExpectedHash -notmatch '^[a-fA-F0-9]{64}$') { throw '校验值应为 64 个字符，请完整复制微软下载页中对应文件的校验值。' }
+    Write-Status "检查系统镜像是否下载完整：$Path"
     if ($script:DryRunEnabled) { return }
     $actualHash = (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash
-    if ($actualHash -ne $ExpectedHash) { throw "镜像校验失败。实际 SHA-256：$actualHash" }
-    Write-Result 'ISO 镜像校验' $true
+    if ($actualHash -ne $ExpectedHash) { throw "系统镜像校验失败，文件与微软公布的内容不一致。实际校验值：$actualHash" }
+    Write-Result '系统镜像完整性检查' $true
 }
 
 function Backup-UserFiles {
@@ -125,11 +152,11 @@ function Export-SetupDrivers {
 function Copy-SetupLauncher {
     param([string]$Destination)
     if (-not (Test-Path -LiteralPath $Destination -PathType Container)) { throw "目标目录不存在：$Destination" }
-    $folder = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath((Join-Path $Destination 'WinDevPicker'))
+    $folder = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath((Join-Path $Destination 'WindowsSetupHelper'))
     $sourceFolder = $ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($script:ProjectRoot)
     if ($folder -eq $sourceFolder) { Write-Status '助手已保存在该目录。'; Write-Result '保存安装后助手' $null; return }
     if ($folder.StartsWith($sourceFolder.TrimEnd([IO.Path]::DirectorySeparatorChar) + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) { throw '请选择助手所在目录之外的位置。' }
-    Write-Host "保存安装后助手：$folder"
+    Write-Host "保存 Windows 装机助手：$folder"
     if (-not (Confirm-Selection)) { return }
     if ($script:DryRunEnabled) { Write-Status "[预演] 复制助手到 $folder"; return }
     [void](New-Item -ItemType Directory -Path $folder -Force)
@@ -137,16 +164,16 @@ function Copy-SetupLauncher {
         Copy-Item -LiteralPath (Join-Path $script:ProjectRoot $name) -Destination $folder -Recurse -Force
     }
     Write-Status "安装后运行 $folder\Launch.cmd，可在离线状态下安装备份的驱动。"
-    Write-Result '保存安装后助手' $true
+    Write-Result '保存 Windows 装机助手' $true
 }
 
 function Show-InstallationGuide {
     Write-Host @'
 1. 将个人文件和驱动备份保存到重装时保留的磁盘或 U 盘。
-2. 下载 ISO，在 Rufus 或 Ventoy 中制作启动盘。
+2. 下载系统镜像（ISO 文件），在 Rufus 或 Ventoy 中制作启动盘。
 3. 重启电脑，从电脑厂商提供的启动菜单选择 U 盘。
 4. 按 Windows 安装程序选择系统版本和安装分区，格式化会清除对应分区的数据。
-5. 系统安装完成后，运行 U 盘中 WinDevPicker\Launch.cmd，安装备份驱动后联网。
+5. 系统安装完成后，运行 U 盘中 WindowsSetupHelper\Launch.cmd，安装备份驱动后联网。
 '@
 }
 
@@ -154,14 +181,14 @@ function Show-PreparationMenu {
     while ($true) {
         Write-Host "`n装机准备"
         Write-Host '1. 查看电脑信息'
-        Write-Host '2. 下载 Windows ISO（微软媒体创建工具）'
-        Write-Host '3. 打开微软 ISO 下载页（含 Arm64）'
-        Write-Host '4. 校验已有 ISO'
-        Write-Host '5. 下载并启动 Rufus'
-        Write-Host '6. 下载并启动 Ventoy'
+        Write-Host '2. 下载 Windows 系统镜像（安装用的 ISO 文件）'
+        Write-Host '3. 打开微软系统镜像下载页'
+        Write-Host '4. 检查系统镜像是否下载完整'
+        Write-Host '5. Rufus：将一个系统镜像写入 U 盘'
+        Write-Host '6. Ventoy：在同一个启动 U 盘中使用多个系统镜像'
         Write-Host '7. 备份个人文件夹'
         Write-Host '8. 备份第三方驱动'
-        Write-Host '9. 保存安装后助手到 U 盘（支持离线安装备份驱动）'
+        Write-Host '9. 保存 Windows 装机助手到 U 盘（可离线安装备份驱动）'
         Write-Host '10. 查看系统安装步骤'
         Write-Host '0. 返回'
         $before = @($script:Succeeded, $script:Skipped, $script:Failed)
@@ -169,13 +196,29 @@ function Show-PreparationMenu {
         switch ($choice) {
             '1' { Show-SetupComputer }
             '2' { Start-WindowsDownload }
-            '3' { Open-SetupPage '微软 ISO 下载页' 'https://www.microsoft.com/zh-cn/software-download/windows11' }
-            '4' { Test-IsoFile ((Read-Host 'ISO 文件完整路径').Trim().Trim('"')) ((Read-Host '微软公布的 SHA-256 校验值').Trim()) }
+            '3' { Open-SetupPage '微软系统镜像下载页' 'https://www.microsoft.com/zh-cn/software-download/windows11' }
+            '4' {
+                $path = Select-SetupPath '选择需要检查的系统镜像' -File
+                if (-not $path) { break }
+                $hash = (Read-Host '请粘贴微软下载页“验证你的下载”中对应文件的校验值；回车返回').Trim()
+                if ($hash) { Test-IsoFile $path $hash }
+            }
             '5' { Start-BootTool 'Rufus' }
             '6' { Start-BootTool 'Ventoy' }
-            '7' { Backup-UserFiles ((Read-Host '需要备份的文件夹').Trim().Trim('"')) ((Read-Host '备份目标目录（使用重装时保留的磁盘或 U 盘）').Trim().Trim('"')) }
-            '8' { Export-SetupDrivers ((Read-Host '驱动备份目录（使用重装时保留的磁盘或 U 盘）').Trim().Trim('"')) }
-            '9' { Copy-SetupLauncher ((Read-Host 'U 盘目录，例如 E:\').Trim().Trim('"')) }
+            '7' {
+                $source = Select-SetupPath '选择需要备份的文件夹'
+                if (-not $source) { break }
+                $destination = Select-SetupPath '选择备份保存位置（重装时会保留的磁盘或 U 盘）'
+                if ($destination) { Backup-UserFiles $source $destination }
+            }
+            '8' {
+                $destination = Select-SetupPath '选择驱动备份的保存位置（重装时会保留的磁盘或 U 盘）'
+                if ($destination) { Export-SetupDrivers $destination }
+            }
+            '9' {
+                $destination = Select-SetupPath '选择 U 盘中的保存位置'
+                if ($destination) { Copy-SetupLauncher $destination }
+            }
             '10' { Show-InstallationGuide }
             '0' { return }
             default { Write-Status '无效的操作序号。' 'Warn'; continue }
