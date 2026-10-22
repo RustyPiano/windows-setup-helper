@@ -17,7 +17,7 @@ $originalOS = $env:OS
 $env:LOCALAPPDATA = Join-Path $testFolder 'appdata'
 $env:OS = 'Windows_NT'
 $env:WINDEVPICKER_TEST_BOOTSTRAP_MARKER = Join-Path $testFolder 'started.txt'
-$baseUrl = 'https://bootstrap-test.invalid'
+$baseUrl = 'https://raw.githubusercontent.com/RustyPiano/win-dev-picker/main'
 
 function Invoke-WebRequest {
     param([string]$Uri, [string]$OutFile, [switch]$UseBasicParsing, [int]$TimeoutSec)
@@ -28,7 +28,7 @@ function Invoke-WebRequest {
 }
 
 try {
-    & $bootstrap -BaseUrl $baseUrl
+    Get-Content -LiteralPath $bootstrap -Raw -Encoding UTF8 | Invoke-Expression
     if (-not (Test-Path $env:WINDEVPICKER_TEST_BOOTSTRAP_MARKER)) { throw '在线启动没有执行入口文件。' }
     Remove-Item -LiteralPath $env:WINDEVPICKER_TEST_BOOTSTRAP_MARKER
 

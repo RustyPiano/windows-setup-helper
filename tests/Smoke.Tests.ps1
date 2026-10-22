@@ -11,7 +11,7 @@ $parseErrors = $null
 [void][System.Management.Automation.Language.Parser]::ParseFile($entry, [ref]$tokens, [ref]$parseErrors)
 if ($parseErrors.Count -gt 0) { throw ($parseErrors | Out-String) }
 
-$packages = @(Get-Content $packagesPath -Raw -Encoding UTF8 | ConvertFrom-Json)
+$packages = Get-Content $packagesPath -Raw -Encoding UTF8 | ConvertFrom-Json
 if ($packages.Count -ne 19) { throw '软件清单应保留 19 项。' }
 $ids = @($packages | ForEach-Object { $_.id })
 if (@($ids | Select-Object -Unique).Count -ne $ids.Count) { throw '软件 ID 存在重复。' }

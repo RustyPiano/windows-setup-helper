@@ -21,3 +21,8 @@ jobs:
           ./tests/Smoke.Tests.ps1
           ./tests/Behavior.Tests.ps1
           ./tests/Bootstrap.Tests.ps1
+      - name: Online startup
+        shell: powershell
+        run: |
+          @('5', '0') | & powershell.exe -NoProfile -Command 'irm https://raw.githubusercontent.com/RustyPiano/win-dev-picker/main/bootstrap.ps1 | iex'
+          if ($LASTEXITCODE -ne 0) { throw '在线启动失败。' }

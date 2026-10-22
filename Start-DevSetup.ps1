@@ -16,7 +16,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$script:PackageCatalog = @(Get-Content (Join-Path $PSScriptRoot 'data/packages.json') -Raw -Encoding UTF8 | ConvertFrom-Json)
+$script:PackageCatalog = Get-Content (Join-Path $PSScriptRoot 'data/packages.json') -Raw -Encoding UTF8 | ConvertFrom-Json
 $script:MirrorCatalog = Get-Content (Join-Path $PSScriptRoot 'data/mirrors.json') -Raw -Encoding UTF8 | ConvertFrom-Json
 $script:ManagerNames = @('winget', 'pip', 'uv', 'npm', 'pnpm', 'yarn', 'go', 'cargo')
 $script:DryRunEnabled = [bool]$DryRun
