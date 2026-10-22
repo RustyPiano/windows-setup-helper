@@ -79,6 +79,8 @@ try {
         . $entry -Action List -DryRun -Yes 6>$null
         $script:DryRunEnabled = $false
         $script:RequestedElevation = $null
+        $script:ElevatedSuccesses = 1
+        $script:ElevatedSkips = 0
         function Start-Process {
             param([string]$FilePath, [string[]]$ArgumentList, [string]$Verb, [switch]$Wait, [switch]$PassThru)
             if ($Verb -ne 'RunAs' -or -not $Wait -or $ArgumentList -notcontains '-EncodedCommand' -or $ArgumentList -notcontains '-ExecutionPolicy' -or $ArgumentList -notcontains 'Bypass') { throw '驱动操作没有请求管理员授权或配置脚本执行方式。' }
@@ -89,6 +91,7 @@ try {
             if ($errors.Count -gt 0) { throw '管理员脚本无法解析。' }
             $encoded = $ast.FindAll({ param($node) $node -is [System.Management.Automation.Language.StringConstantExpressionAst] -and $node.Value -match '^[A-Za-z0-9+/=]{80,}$' }, $true)[0].Value
             $script:RequestedElevation = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String($encoded)) | ConvertFrom-Json
+            @{ Succeeded = $script:ElevatedSuccesses; Skipped = $script:ElevatedSkips } | ConvertTo-Json | Set-Content -LiteralPath $script:RequestedElevation.ResultFile -Encoding UTF8
             return [pscustomobject]@{ ExitCode = 0 }
         }
         function Test-Administrator { return $false }
@@ -97,6 +100,11 @@ try {
         if ($script:RequestedElevation.Operation -ne 'ExportDrivers' -or $script:RequestedElevation.Values.Destination -ne $destination) { throw '管理员操作丢失了含空格和引号的路径。' }
         Invoke-SetupTask 'ImportDrivers' @{ Source = $destination }
         if ($script:RequestedElevation.Operation -ne 'ImportDrivers' -or $script:RequestedElevation.Values.Source -ne $destination) { throw '驱动安装未传递用户选择的目录。' }
+        $script:ElevatedSuccesses = 0
+        $script:ElevatedSkips = 1
+        $before = $script:Succeeded
+        Invoke-SetupTask 'ImportDrivers' @{ Source = $destination }
+        if ($script:Succeeded -ne $before -or $script:Skipped -ne 1) { throw '管理员进程跳过操作时被统计为成功。' }
     }
 
     & {
@@ -151,7 +159,7 @@ try {
                 $state.Form.Show()
                 [Windows.Forms.Application]::DoEvents()
                 if ($state.Tabs.TabPages.Count -ne 7 -or $state.Log.Visible -or $state.TargetChoice.Visible) { throw '首页没有分离任务入口、目标信息和详细记录。' }
-                Invoke-DesktopClick @{ Action = 'TargetSetup' }
+                Invoke-DesktopClick @{ Action = 'TargetSetup'; Context = $null }
                 [Windows.Forms.Application]::DoEvents()
                 if ($state.Tabs.SelectedIndex -ne 6 -or -not $state.TargetChoice.Visible) { throw '准备重装入口没有打开目标信息。' }
                 $state.TargetChoice.SelectedIndex = 1
@@ -200,7 +208,7 @@ try {
                 $deadline = (Get-Date).AddSeconds(30)
                 while ($null -ne $state.Worker -and (Get-Date) -lt $deadline) { [Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 25 }
                 if ($null -ne $state.Worker -or -not $state.Tabs.Enabled -or -not $state.Navigation.Enabled -or $state.Guides.prepare.States[2] -ne '未完成' -or $state.Log.Text -notmatch 'ISO' -or -not $state.Log.Visible) { throw '窗口没有展开后台错误或恢复操作按钮。' }
-                Invoke-DesktopClick @{ Action = 'ToggleDetails' }
+                Invoke-DesktopClick @{ Action = 'ToggleDetails'; Context = $null }
                 if ($state.Log.Visible) { throw '详细记录不能收起。' }
                 function Confirm-DesktopAction { return $false }
                 function Start-SetupWorker { throw '取消确认后仍然开始安装。' }

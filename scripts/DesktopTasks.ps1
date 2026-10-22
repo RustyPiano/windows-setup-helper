@@ -55,7 +55,8 @@ function Invoke-ElevatedSetupTask {
     [void](New-Item -ItemType Directory -Path $logFolder -Force)
     $logFile = Join-Path $logFolder ('administrator-' + [guid]::NewGuid().ToString('N') + '.log')
     $errorFile = $logFile + '.error.txt'
-    $request = @{ Operation = $Operation; Values = $Values; Root = $script:ProjectRoot; LogFile = $logFile; ErrorFile = $errorFile } | ConvertTo-Json -Depth 5 -Compress
+    $resultFile = $logFile + '.result.json'
+    $request = @{ Operation = $Operation; Values = $Values; Root = $script:ProjectRoot; LogFile = $logFile; ErrorFile = $errorFile; ResultFile = $resultFile } | ConvertTo-Json -Depth 5 -Compress
     $payload = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($request))
     $command = @'
 $ErrorActionPreference = 'Stop'
@@ -71,6 +72,7 @@ try {
     foreach ($property in $request.Values.PSObject.Properties) { $values[$property.Name] = $property.Value }
     Invoke-SetupTask $request.Operation $values
     if ($script:Failed -gt 0) { throw '管理员操作报告失败，详细输出见管理员运行记录。' }
+    @{ Succeeded = $script:Succeeded; Skipped = $script:Skipped } | ConvertTo-Json | Set-Content -LiteralPath $request.ResultFile -Encoding UTF8
     $elevationFinished = $true
 }
 finally {
@@ -91,7 +93,11 @@ finally {
         $reason = if (Test-Path -LiteralPath $errorFile) { Get-Content -LiteralPath $errorFile -Raw -Encoding UTF8 } else { '管理员进程没有返回具体错误，请查看管理员运行记录。' }
         throw "管理员操作未完成（退出代码 $($process.ExitCode)）：$reason`n管理员运行记录：$logFile"
     }
-    if ($Operation -ne 'OptimizeMachine') { Write-Result '管理员操作' $true }
+    $result = Get-Content -LiteralPath $resultFile -Raw -Encoding UTF8 | ConvertFrom-Json
+    if ($Operation -ne 'OptimizeMachine') {
+        for ($i = 0; $i -lt $result.Succeeded; $i++) { Write-Result '管理员操作' $true }
+        for ($i = 0; $i -lt $result.Skipped; $i++) { Write-Result '管理员操作' $null }
+    }
 }
 
 function Copy-PreparationFile {
