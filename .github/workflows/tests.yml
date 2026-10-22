@@ -14,12 +14,14 @@ jobs:
         run: |
           .\tests\Smoke.Tests.ps1
           .\tests\Behavior.Tests.ps1
+          .\tests\Setup.Tests.ps1
           .\tests\Bootstrap.Tests.ps1
       - name: PowerShell 7
         shell: pwsh
         run: |
           ./tests/Smoke.Tests.ps1
           ./tests/Behavior.Tests.ps1
+          ./tests/Setup.Tests.ps1
           ./tests/Bootstrap.Tests.ps1
       - name: Online startup
         shell: powershell

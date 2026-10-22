@@ -1,0 +1,12 @@
+[
+  { "name": "微信", "category": "聊天", "id": "Tencent.WeChat", "description": "微信聊天与文件传输" },
+  { "name": "QQ", "category": "聊天", "id": "Tencent.QQ.NT", "description": "QQ 聊天、群聊与文件传输" },
+  { "name": "WPS Office", "category": "办公", "id": "Kingsoft.WPSOffice.CN", "description": "编辑文档、表格和演示文稿" },
+  { "name": "Google Chrome", "category": "浏览器", "id": "Google.Chrome", "description": "Chrome 网页浏览器" },
+  { "name": "Mozilla Firefox", "category": "浏览器", "id": "Mozilla.Firefox", "description": "Firefox 网页浏览器" },
+  { "name": "小狼毫输入法", "category": "输入法", "id": "Rime.Weasel", "description": "Rime 中文输入法，支持配置不同输入方案" },
+  { "name": "SumatraPDF", "category": "PDF", "id": "SumatraPDF.SumatraPDF", "description": "阅读 PDF 和电子书" },
+  { "name": "ShareX", "category": "截图", "id": "ShareX.ShareX", "description": "截图、录制屏幕和标注图片" },
+  { "name": "VLC", "category": "播放器", "id": "VideoLAN.VLC", "description": "播放视频和音频文件" },
+  { "name": "ToDesk", "category": "远程协助", "id": "Youqu.ToDesk", "description": "远程连接和协助操作另一台电脑" }
+]

@@ -9,23 +9,27 @@ $parseErrors = $null
 if ($parseErrors.Count -gt 0) { throw ($parseErrors | Out-String) }
 
 $testFolder = Join-Path $root ('.work/bootstrap-tests-' + [guid]::NewGuid().ToString('N'))
-$payload = Join-Path $testFolder 'payload'
+$payload = Join-Path $testFolder 'win-dev-picker-main'
 [void](New-Item -ItemType Directory -Path (Join-Path $payload 'data') -Force)
+[void](New-Item -ItemType Directory -Path (Join-Path $payload 'scripts') -Force)
 Copy-Item (Join-Path $PSScriptRoot 'fixtures/BootstrapEntry.ps1') (Join-Path $payload 'Start-DevSetup.ps1')
 Copy-Item (Join-Path $root 'data/*.json') (Join-Path $payload 'data')
+Copy-Item (Join-Path $root 'scripts/*.ps1') (Join-Path $payload 'scripts')
+Copy-Item (Join-Path $root 'Launch-Online.cmd') $payload
+$payloadArchive = Join-Path $testFolder 'payload.zip'
+Compress-Archive -Path $payload -DestinationPath $payloadArchive
 $originalLocalAppData = $env:LOCALAPPDATA
 $originalOS = $env:OS
 $env:LOCALAPPDATA = Join-Path $testFolder 'appdata'
 $env:OS = 'Windows_NT'
 $env:WINDEVPICKER_TEST_BOOTSTRAP_MARKER = Join-Path $testFolder 'started.txt'
-$baseUrl = 'https://raw.githubusercontent.com/RustyPiano/win-dev-picker/main'
+$archiveUrl = 'https://github.com/RustyPiano/win-dev-picker/archive/refs/heads/main.zip'
 
 function Invoke-WebRequest {
     param([string]$Uri, [string]$OutFile, [switch]$UseBasicParsing, [int]$TimeoutSec)
-    if (-not $Uri.StartsWith($baseUrl + '/')) { throw '启动脚本使用了错误的下载地址。' }
-    $file = $Uri.Substring($baseUrl.Length + 1)
-    if ($file -eq 'data/mirrors.json' -and $env:WINDEVPICKER_TEST_DOWNLOAD_FAIL -eq '1') { throw 'download-failed' }
-    Copy-Item -LiteralPath (Join-Path $payload $file) -Destination $OutFile
+    if ($Uri -ne $archiveUrl) { throw '启动脚本使用了错误的下载地址。' }
+    if ($env:WINDEVPICKER_TEST_DOWNLOAD_FAIL -eq '1') { throw 'download-failed' }
+    Copy-Item -LiteralPath $payloadArchive -Destination $OutFile
 }
 
 try {

@@ -1,6 +1,6 @@
 ﻿[CmdletBinding()]
 param(
-    [ValidateSet('Menu', 'List', 'Install', 'Mirrors', 'Restore')]
+    [ValidateSet('Menu', 'List', 'Install', 'Mirrors', 'Restore', 'Prepare', 'System', 'Apps', 'AppList')]
     [string]$Action = 'Menu',
 
     [string[]]$PackageIds = @(),
@@ -17,6 +17,11 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 $script:PackageCatalog = Get-Content (Join-Path $PSScriptRoot 'data/packages.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+$script:AppCatalog = Get-Content (Join-Path $PSScriptRoot 'data/apps.json') -Raw -Encoding UTF8 | ConvertFrom-Json
+$script:ProjectRoot = $PSScriptRoot
+$script:SetupFolder = ''
+. (Join-Path $PSScriptRoot 'scripts/Preparation.ps1')
+. (Join-Path $PSScriptRoot 'scripts/System.ps1')
 $script:MirrorCatalog = Get-Content (Join-Path $PSScriptRoot 'data/mirrors.json') -Raw -Encoding UTF8 | ConvertFrom-Json
 $script:ManagerNames = @('winget', 'pip', 'uv', 'npm', 'pnpm', 'yarn', 'go', 'cargo')
 $script:DryRunEnabled = [bool]$DryRun
@@ -79,7 +84,7 @@ function Find-Tool {
 }
 
 function Invoke-Tool {
-    param([string]$Name, [string[]]$Arguments)
+    param([string]$Name, [string[]]$Arguments, [int[]]$SuccessExitCodes = @(0), [int[]]$SkipExitCodes = @())
     Write-Status ("运行：{0} {1}" -f $Name, ($Arguments -join ' '))
     if ($script:DryRunEnabled) {
         Write-Status '[预演] 未执行命令'
@@ -100,7 +105,11 @@ function Invoke-Tool {
         }
         $LASTEXITCODE
     }
-    if ($exitCode -ne 0) {
+    if ($SkipExitCodes -contains $exitCode) {
+        Write-Status "$Name 无需执行更改，退出代码：$exitCode"
+        return $null
+    }
+    if ($SuccessExitCodes -notcontains $exitCode) {
         Write-Status "$Name 执行失败，退出代码：$exitCode" 'Error'
         return $false
     }
@@ -140,9 +149,10 @@ function Confirm-Selection {
 }
 
 function Show-Packages {
+    param([object[]]$Items = $script:PackageCatalog)
     Write-Host "`n可安装软件（通过 WinGet）："
-    for ($i = 0; $i -lt $script:PackageCatalog.Count; $i++) {
-        $item = $script:PackageCatalog[$i]
+    for ($i = 0; $i -lt $Items.Count; $i++) {
+        $item = $Items[$i]
         Write-Host ('{0,2}. [{1}] {2}  ({3})' -f ($i + 1), $item.category, $item.name, $item.id)
         Write-Host ('    {0}' -f $item.description)
         if ($item.PSObject.Properties['note']) { Write-Host ('    {0}' -f $item.note) -ForegroundColor Yellow }
@@ -150,14 +160,22 @@ function Show-Packages {
 }
 
 function Get-RequestedPackages {
-    param([string[]]$Ids)
+    param([string[]]$Ids, [object[]]$Catalog = $script:PackageCatalog)
     $selected = @()
     foreach ($id in $Ids) {
-        $item = $script:PackageCatalog | Where-Object { $_.id -ieq $id } | Select-Object -First 1
-        if (-not $item) { throw "未知的软件 ID：$id。可使用 -Action List 查看。" }
+        $item = $Catalog | Where-Object { $_.id -ieq $id } | Select-Object -First 1
+        if (-not $item) { throw "未知的软件 ID：$id。请查看对应的软件清单。" }
         if (@($selected | Where-Object { $_.id -eq $item.id }).Count -eq 0) { $selected += $item }
     }
     return @($selected)
+}
+
+function Select-Packages {
+    param([object[]]$Catalog)
+    Show-Packages $Catalog
+    $indices = @(Select-Numbers -Prompt '选择需要安装的软件' -Count $Catalog.Count)
+    if ($indices.Count -eq 0) { return }
+    Install-Packages @($indices | ForEach-Object { $Catalog[$_ - 1] })
 }
 
 function Test-Installed {
@@ -458,30 +476,30 @@ function Read-MirrorSelection {
 
 function Show-Menu {
     while ($true) {
-        Write-Host "`n========== Windows 开发环境安装助手 ==========" -ForegroundColor Cyan
-        Write-Host '1. 选择安装软件'
-        Write-Host '2. 一键配置推荐国内镜像'
-        Write-Host '3. 自选包管理器和镜像'
-        Write-Host '4. 恢复官方镜像（按包管理器选择）'
-        Write-Host '5. 查看软件清单'
+        Write-Host "`n========== Windows 装机助手 ==========" -ForegroundColor Cyan
+        Write-Host '1. 装机准备（镜像、启动盘、备份）'
+        Write-Host '2. 安装后配置（驱动、更新、激活、系统设置）'
+        Write-Host '3. 安装日常软件'
+        Write-Host '4. 安装开发软件'
+        Write-Host '5. 查看开发软件清单'
+        Write-Host '6. 一键配置推荐国内镜像'
+        Write-Host '7. 自选包管理器和镜像'
+        Write-Host '8. 恢复官方镜像（按包管理器选择）'
         Write-Host '0. 退出'
         $choice = (Read-Host '请输入操作序号').Trim()
         $before = @($script:Succeeded, $script:Skipped, $script:Failed)
         $logCount = $script:LogLines.Count
         switch ($choice) {
-            '1' {
-                Show-Packages
-                $indices = @(Select-Numbers -Prompt '选择需要安装的软件' -Count $script:PackageCatalog.Count)
-                if ($indices.Count -eq 0) { break }
-                $items = @($indices | ForEach-Object { $script:PackageCatalog[$_ - 1] })
-                Install-Packages $items
-            }
-            '2' {
+            '1' { Show-PreparationMenu }
+            '2' { Show-SystemMenu }
+            '3' { Select-Packages $script:AppCatalog }
+            '4' { Select-Packages $script:PackageCatalog }
+            '6' {
                 $plan = @(New-MirrorPlan -Names $script:ManagerNames -Key 'Auto')
                 Show-MirrorPlan $plan
                 if (Confirm-Selection) { Invoke-MirrorPlan $plan }
             }
-            '3' {
+            '7' {
                 for ($i = 0; $i -lt $script:ManagerNames.Count; $i++) { Write-Host ('{0}. {1}' -f ($i + 1), $script:ManagerNames[$i]) }
                 $indices = @(Select-Numbers -Prompt '选择需要配置的包管理器' -Count $script:ManagerNames.Count)
                 if ($indices.Count -eq 0) { break }
@@ -489,7 +507,7 @@ function Show-Menu {
                 $plan = @(Read-MirrorSelection $names)
                 if ($plan.Count -gt 0) { Show-MirrorPlan $plan; if (Confirm-Selection) { Invoke-MirrorPlan $plan } }
             }
-            '4' {
+            '8' {
                 for ($i = 0; $i -lt $script:ManagerNames.Count; $i++) { Write-Host ('{0}. {1}' -f ($i + 1), $script:ManagerNames[$i]) }
                 $indices = @(Select-Numbers -Prompt '选择需要恢复的包管理器' -Count $script:ManagerNames.Count)
                 if ($indices.Count -eq 0) { break }
@@ -502,7 +520,7 @@ function Show-Menu {
             '0' { return }
             default { Write-Status '无效的操作序号。' 'Warn' }
         }
-        if ($script:LogLines.Count -gt $logCount) {
+        if ($choice -notin @('1', '2') -and $script:LogLines.Count -gt $logCount) {
             Show-Summary -Succeeded ($script:Succeeded - $before[0]) -Skipped ($script:Skipped - $before[1]) -Failed ($script:Failed - $before[2])
         }
     }
@@ -516,6 +534,13 @@ $completed = $false
 try {
     switch ($Action) {
         'List' { Show-Packages }
+        'AppList' { Show-Packages $script:AppCatalog }
+        'Prepare' { Show-PreparationMenu }
+        'System' { Show-SystemMenu }
+        'Apps' {
+            if ($PackageIds.Count -gt 0) { Install-Packages @(Get-RequestedPackages $PackageIds $script:AppCatalog) }
+            else { Select-Packages $script:AppCatalog }
+        }
         'Install' {
             if ($PackageIds.Count -eq 0) { throw '请使用 -PackageIds 指定至少一个软件 ID，或运行交互式菜单。' }
             $items = @(Get-RequestedPackages $PackageIds)
@@ -539,7 +564,7 @@ try {
 }
 finally {
     Save-Log
-    if ($completed -and $Action -ne 'Menu' -and $script:LogLines.Count -gt 0) { Show-Summary }
+    if ($completed -and $Action -notin @('Menu', 'Prepare', 'System') -and $script:LogLines.Count -gt 0) { Show-Summary }
     elseif ($script:LogFile) { Write-Host "运行记录：$script:LogFile" }
 }
 if ($script:Failed -gt 0) { exit 1 }

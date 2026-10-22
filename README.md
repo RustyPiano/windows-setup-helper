@@ -1,152 +1,122 @@
 # WinDevPicker
 
-Windows 开发环境交互式安装与国内镜像配置工具。使用系统自带的 Windows PowerShell 5.1 即可运行，也支持 PowerShell 7。
+Windows 装机助手，覆盖镜像下载、启动盘工具、文件与驱动备份、安装后配置、日常软件和开发环境。支持 Windows PowerShell 5.1 与 PowerShell 7。
 
-可以选择软件、一次配置常见包管理器的镜像、单独挑选镜像、恢复官方地址。无需安装 Python、Node.js 或其他额外运行环境。
+## 启动
 
-## 快速开始
-
-在 Windows PowerShell 中粘贴以下命令：
+在 Windows PowerShell 中运行：
 
 ```powershell
 irm https://raw.githubusercontent.com/RustyPiano/win-dev-picker/main/bootstrap.ps1 | iex
 ```
 
-启动脚本自动下载主脚本和两份清单，打开中文菜单。下载文件在退出后清理，运行日志保留在本机。
+启动器下载本仓库 ZIP，解压后打开菜单，退出时清理临时副本。镜像、工具和备份保存在用户选择的位置，日志保存在 `%LOCALAPPDATA%\WinDevPicker\logs\`。
 
-也可以下载仓库 ZIP 并解压，双击 `Launch.cmd`，或在 Windows PowerShell 中进入仓库目录，运行：
-
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\Start-DevSetup.ps1
-```
-
-交互菜单：
+也可以下载仓库 ZIP 并解压，双击 `Launch.cmd`。以管理员身份运行终端可备份和安装驱动、修改 WinGet 源。
 
 ```text
-========== Windows 开发环境安装助手 ==========
-1. 选择安装软件
-2. 一键配置推荐国内镜像
-3. 自选包管理器和镜像
-4. 恢复官方镜像（按包管理器选择）
-5. 查看软件清单
+========== Windows 装机助手 ==========
+1. 装机准备（镜像、启动盘、备份）
+2. 安装后配置（驱动、更新、激活、系统设置）
+3. 安装日常软件
+4. 安装开发软件
+5. 查看开发软件清单
+6. 一键配置推荐国内镜像
+7. 自选包管理器和镜像
+8. 恢复官方镜像（按包管理器选择）
 0. 退出
 ```
 
-选择软件和包管理器时，输入 `1,3,5-7` 可多选，输入 `all` 选择全部。实际更改前会显示选项并要求确认。
+软件和包管理器支持输入 `1,3,5-7` 多选，输入 `all` 全选。实际更改前显示选项并确认。
+
+## 装机流程
+
+1. 查看电脑型号、系统、架构和磁盘空间，将文件夹和第三方驱动备份到重装时保留的磁盘或 U 盘。
+2. 使用微软媒体创建工具下载 Windows 11 ISO，或打开微软官方下载页选择镜像。Arm64 设备使用对应的官方下载页。已有 ISO 可以输入微软公布的 SHA-256 进行校验。
+3. 下载并启动 Rufus 或 Ventoy，在工具的原生界面中选择 U 盘并确认写入。写入会清除所选设备的数据。工具下载文件与 GitHub 官方发布的 SHA-256 比对，微软媒体创建工具验证 Microsoft 数字签名。
+4. 将安装后助手保存到 U 盘，重启电脑并从 U 盘进入 Windows 安装程序，按安装界面选择版本和分区。
+5. 系统安装后运行 U 盘中 `WinDevPicker\Launch.cmd`。该副本支持离线安装备份驱动，联网后可安装软件、检查更新和运行激活工具。
+
+文件夹备份使用 Robocopy，保留目标目录中已有的其他文件。驱动备份使用 DISM 导出第三方驱动，安装使用 PnPUtil 匹配当前硬件。
+
+## 安装后配置
+
+提供电脑信息、备份驱动安装、Windows 更新、激活状态、激活工具、文件扩展名显示，以及任务栏、启动应用、电源和默认应用设置入口。
+
+激活入口使用以下命令，在独立 PowerShell 窗口中启动第三方 Microsoft Activation Scripts，由用户在其菜单中选择具体操作。退出后读取 Windows 许可状态。
+
+```powershell
+irm https://get.activated.win | iex
+```
+
+文件扩展名设置写入当前用户配置，重新登录后生效。其余 Windows 设置通过对应的系统设置页面调整。
 
 ## 软件清单
 
-提供 Windows Terminal、PowerShell 7、Git、GitHub CLI、Visual Studio Code、Python 3.14、uv、Node.js LTS、Go、Rustup、.NET SDK 10、nvm for Windows、GitHub Copilot CLI、PowerToys、Oh My Posh、Coreutils for Windows、Windows App CLI、Docker Desktop 和 7-Zip。
+日常软件在 [`data/apps.json`](data/apps.json) 中维护：微信、QQ、WPS Office、Google Chrome、Mozilla Firefox、小狼毫输入法、SumatraPDF、ShareX、VLC 和 ToDesk。
 
-软件均通过 WinGet 的精确 ID 安装，用途说明、软件 ID 和分类在 [`data/packages.json`](data/packages.json) 中维护。安装前显示已安装和待安装的软件，已经安装的会跳过。Node.js LTS 与 nvm for Windows 需要二选一，冲突会在确认安装之前提示。
+开发软件在 [`data/packages.json`](data/packages.json) 中维护：Windows Terminal、PowerShell 7、Git、GitHub CLI、Visual Studio Code、Python 3.14、uv、Node.js LTS、Go、Rustup、.NET SDK 10、nvm for Windows、GitHub Copilot CLI、PowerToys、Oh My Posh、Coreutils for Windows、Windows App CLI、Docker Desktop 和 7-Zip。
 
-安装结束后，当前窗口会读取更新后的程序搜索目录，可直接返回菜单配置镜像。nvm for Windows 安装后还需要通过 `nvm` 安装具体的 Node.js 版本。
+软件通过 WinGet 精确 ID 安装，已安装的软件跳过。Node.js LTS 与 nvm for Windows 需要二选一。安装后更新当前窗口的程序搜索目录，可继续配置镜像；nvm 安装后仍需安装具体的 Node.js 版本。
 
 ## 国内镜像
 
-| 包管理器 | 可选镜像 | 一键配置时的默认选择 | 修改范围 |
+| 包管理器 | 可选镜像 | 推荐选择 | 修改范围 |
 | --- | --- | --- | --- |
-| WinGet | 中科大 USTC、官方 | 中科大 USTC | `winget` 社区索引源 |
+| WinGet | 中科大 USTC、官方 | 中科大 USTC | 社区索引源 |
 | pip | 清华 TUNA、中科大 USTC、阿里云、官方 | 清华 TUNA | 当前用户 pip 配置 |
-| uv | 清华 TUNA、中科大 USTC、阿里云、官方 | 清华 TUNA | 当前用户 `UV_DEFAULT_INDEX` 环境变量 |
-| npm | npmmirror、腾讯云、官方 | npmmirror | 当前用户 npm registry |
-| pnpm | npmmirror、腾讯云、官方 | npmmirror | 当前用户 pnpm registry |
-| Yarn | npmmirror、腾讯云、官方 | npmmirror | Yarn 1 的用户 registry / Yarn 2+ 的 home 配置 |
+| uv | 清华 TUNA、中科大 USTC、阿里云、官方 | 清华 TUNA | 用户环境变量 `UV_DEFAULT_INDEX` |
+| npm | npmmirror、腾讯云、官方 | npmmirror | 用户 registry |
+| pnpm | npmmirror、腾讯云、官方 | npmmirror | 用户 registry |
+| Yarn | npmmirror、腾讯云、官方 | npmmirror | Yarn 1 用户 registry / Yarn 2+ home 配置 |
 | Go | Goproxy.cn、阿里云、官方 | Goproxy.cn | `go env -w GOPROXY` |
 | Cargo | 清华 TUNA、中科大 USTC、官方 | 清华 TUNA | `$CARGO_HOME/config.toml` |
 
-镜像地址与默认选择均可在 [`data/mirrors.json`](data/mirrors.json) 中调整。
+镜像地址在 [`data/mirrors.json`](data/mirrors.json) 中维护。缺少工具或权限时显示原因并跳过对应项。Cargo 已有 `config` 或自定义 `config.toml` 时跳过，恢复官方源时只删除本工具生成的配置。
 
-**下载范围说明**：WinGet 镜像主要加速软件清单/索引的访问，软件安装包仍可能下载自 GitHub、微软或软件作者的服务器。此工具不会设置系统代理、修改 DNS、关闭证书检查或绕过哈希校验。
+恢复官方源表示恢复官方地址，原有私有地址需要自行保留。WinGet 镜像主要提供索引，软件安装包、组件、系统镜像和激活工具仍有各自的下载来源。
 
-修改 WinGet 源需要管理员权限，确认之前会提示权限要求。需要修改时，以管理员身份打开 Windows PowerShell 并运行启动命令。缺少权限时跳过 WinGet，继续配置其他包管理器。未安装的 pip、npm、pnpm、Yarn 或 Go 会跳过。
+## 命令行
 
-Cargo 仅会创建或更新由本工具生成的 `config.toml`。已有 `config` 或自定义 `config.toml` 时，工具会显示路径并跳过。恢复官方 Cargo 源时，只删除本工具创建的配置文件。Cargo 的 `search` / `info` 在使用镜像时可能需要添加 `--registry win-dev-picker`。
-
-## 命令行模式
-
-以下命令在本地仓库目录中执行；非交互模式使用 `-Yes` 表示同意执行，预演使用 `-DryRun -Yes`。如果当前终端限制执行脚本，可使用 `powershell.exe -NoProfile -ExecutionPolicy Bypass -File` 加上脚本路径和参数。
-
-查看清单：
+以下命令在本地仓库目录执行。非交互操作使用 `-Yes`，预演使用 `-DryRun -Yes`。
 
 ```powershell
+.\Start-DevSetup.ps1 -Action Prepare
+.\Start-DevSetup.ps1 -Action System
+.\Start-DevSetup.ps1 -Action AppList
+.\Start-DevSetup.ps1 -Action Apps -PackageIds Tencent.WeChat,VideoLAN.VLC -Yes
 .\Start-DevSetup.ps1 -Action List
-```
-
-按 WinGet ID 安装指定软件：
-
-```powershell
-.\Start-DevSetup.ps1 -Action Install -PackageIds Git.Git,Microsoft.VisualStudioCode,astral-sh.uv -Yes
-```
-
-一次设置全部推荐镜像：
-
-```powershell
-.\Start-DevSetup.ps1 -Action Mirrors -Mirror Auto -Yes
-```
-
-针对 Python 和 Rust 选择清华镜像：
-
-```powershell
+.\Start-DevSetup.ps1 -Action Install -PackageIds Git.Git,Microsoft.VisualStudioCode -Yes
 .\Start-DevSetup.ps1 -Action Mirrors -Managers pip,uv,cargo -Mirror TUNA -Yes
-```
-
-恢复指定包管理器的官方源：
-
-```powershell
 .\Start-DevSetup.ps1 -Action Restore -Managers winget,pip,uv,npm,pnpm,yarn,go,cargo -Yes
+.\Start-DevSetup.ps1 -Action Apps -PackageIds Tencent.WeChat -DryRun -Yes
 ```
 
-只查看将要执行的操作，不访问软件源、不安装软件、不更改配置：
+`Prepare` 和 `System` 打开对应的交互菜单；`Apps` 不指定 ID 时打开日常软件选择。`Mirrors` 不指定包管理器时选择全部八项，`-Mirror Auto` 使用推荐镜像。终端限制脚本执行时，可在脚本路径前添加 `powershell.exe -NoProfile -ExecutionPolicy Bypass -File`。
 
-```powershell
-.\Start-DevSetup.ps1 -Action Mirrors -Managers pip,uv,go -DryRun -Yes
-.\Start-DevSetup.ps1 -Action Install -PackageIds Git.Git,Microsoft.PowerShell -DryRun -Yes
-```
-
-`-Action Mirrors` 不指定 `-Managers` 时选择全部八个包管理器，`-Mirror Auto` 使用每个包管理器对应的推荐镜像。如果选定的镜像不支持某个包管理器，脚本会在修改前提示错误。
-
-## 恢复与记录
-
-菜单第 4 项恢复各包管理器的官方地址。恢复过程只修改本工具支持的设置，保留其他无关设置。pip 恢复为显式 PyPI 官方地址；其余工具移除相应的用户覆盖设置或恢复 WinGet 默认源。
-
-每次操作结束后，按软件或包管理器统计成功、跳过和失败数量。实际命令、命令输出及操作结果保存在 `%LOCALAPPDATA%\WinDevPicker\logs\`，脚本异常退出时也保存已有记录。预演操作不写入日志。
-
-## 运行范围
-
-在线入口从本仓库下载并执行代码。启动器的 `-ExecutionPolicy Bypass` 仅作用于子进程，管理员确认和重启要求由软件安装程序决定。
-
-镜像配置会修改选定包管理器的用户软件源。使用私有源时，请按需选择包管理器。恢复官方源表示使用官方地址，原有私有地址需要自行保留。
-
-本工具负责软件安装和镜像配置。WinGet 软件安装包、软件自行下载的组件和依赖有各自的来源，国内镜像无法保证全部下载始终可用。
-
-## 开发和测试
+## 开发与测试
 
 ```powershell
 .\tests\Smoke.Tests.ps1
 .\tests\Behavior.Tests.ps1
+.\tests\Setup.Tests.ps1
 .\tests\Bootstrap.Tests.ps1
 ```
 
-GitHub Actions 在 Windows PowerShell 5.1 与 PowerShell 7 上执行语法、清单、预演、配置读写、错误记录和在线启动测试。测试使用独立目录和命令样例，不安装软件。修改软件清单时编辑 `data/packages.json`，修改镜像时编辑 `data/mirrors.json`。
+GitHub Actions 在 Windows PowerShell 5.1 与 PowerShell 7 上验证清单、预演、配置读写、日志、备份和启动流程。公开下载地址另由 `tests/Online.Tests.ps1` 验证。测试使用独立目录与命令样例，激活工具和启动盘写入均由测试替身验证调用。
 
-## 镜像和命令参考
+装机准备在 `scripts/Preparation.ps1`，安装后配置在 `scripts/System.ps1`，软件安装和镜像配置在 `Start-DevSetup.ps1`。
 
-- [WinGet 官方 source 文档](https://learn.microsoft.com/windows/package-manager/winget/source)
-- [中科大 WinGet](https://mirrors.ustc.edu.cn/help/winget-source.html)
-- [清华 PyPI](https://mirrors.tuna.tsinghua.edu.cn/help/pypi/)
-- [中科大 PyPI](https://mirrors.ustc.edu.cn/help/pypi.html)
-- [阿里云 PyPI](https://developer.aliyun.com/mirror/pypi)
-- [npmmirror](https://npmmirror.com/)
-- [pnpm config](https://pnpm.io/cli/config)
-- [Yarn config set](https://yarnpkg.com/cli/config/set)
-- [uv 配置说明](https://docs.astral.sh/uv/configuration/files/)
-- [Goproxy.cn](https://goproxy.cn/)
-- [阿里云 Go](https://developer.aliyun.com/mirror/goproxy)
-- [清华 Cargo](https://mirrors.tuna.tsinghua.edu.cn/help/crates.io-index/)
-- [中科大 Cargo](https://mirrors.ustc.edu.cn/help/crates.io-index.html)
-- [Cargo source replacement](https://doc.rust-lang.org/cargo/reference/source-replacement.html)
+## 来源
+
+- [微软 Windows 11 下载](https://www.microsoft.com/zh-cn/software-download/windows11)
+- [Rufus](https://rufus.ie/zh/)、[Ventoy](https://www.ventoy.net/cn/doc_start.html)
+- [Microsoft Activation Scripts](https://get.activated.win)
+- [DISM 驱动备份](https://learn.microsoft.com/en-us/windows-hardware/manufacture/desktop/dism-driver-servicing-command-line-options-s14)、[PnPUtil 驱动安装](https://learn.microsoft.com/en-us/windows-hardware/drivers/devtest/pnputil-command-syntax)
+- [Robocopy](https://learn.microsoft.com/en-us/windows-server/administration/windows-commands/robocopy)
+- [WinGet 源](https://learn.microsoft.com/windows/package-manager/winget/source)、[中科大 WinGet 镜像](https://mirrors.ustc.edu.cn/help/winget-source.html)
+- [清华 PyPI](https://mirrors.tuna.tsinghua.edu.cn/help/pypi/)、[清华 Cargo](https://mirrors.tuna.tsinghua.edu.cn/help/crates.io-index/)
 
 ## 许可
 
-MIT License。WindowsDeveloperConfig 和其他软件的名称均属于相应项目，WinDevPicker 是独立实现的社区工具。
+MIT License。下载和启动的第三方软件使用各自的许可。
