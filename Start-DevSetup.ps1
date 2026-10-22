@@ -14,7 +14,8 @@ param(
     [switch]$DryRun,
     [switch]$Yes,
     [switch]$FullOptimization,
-    [Parameter(DontShow)][switch]$MachineOnly
+    [Parameter(DontShow)][switch]$MachineOnly,
+    [Parameter(DontShow)][switch]$InitializeOnly
 )
 
 Set-StrictMode -Version Latest
@@ -592,6 +593,8 @@ function Show-Menu {
         }
     }
 }
+
+if ($InitializeOnly) { return }
 
 if (-not $script:DryRunEnabled -and $env:OS -ne 'Windows_NT') {
     throw 'Windows 装机助手仅支持 Windows。其他系统可使用 -DryRun 查看操作计划。'

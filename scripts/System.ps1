@@ -123,10 +123,28 @@ function Set-SystemTweak {
     if (-not (Test-SystemTweakValue $Setting $value)) { throw "设置写入后核对失败：$($Setting.name)。请检查 Windows 或设备管理策略。" }
 }
 
+function Test-TweakRequiresElevation {
+    param([object]$Setting)
+    return $Setting.path -like 'HKLM:*' -or
+        $Setting.path -like 'HKCU:\SOFTWARE\Policies\*' -or
+        $Setting.path -like 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\*'
+}
+
+function Get-SetupUserSid {
+    $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
+    try { return $identity.User.Value }
+    finally { $identity.Dispose() }
+}
+
 function Invoke-SystemOptimization {
-    param([switch]$Full, [switch]$MachineOnly)
+    param([switch]$Full, [switch]$MachineOnly, [string]$UserSid = '')
+    if ($UserSid) {
+        if (-not $MachineOnly) { throw '指定原用户账户时，必须通过管理员配置入口执行。' }
+        [void][Security.Principal.SecurityIdentifier]::new($UserSid)
+        if (-not (Test-Path -LiteralPath "Registry::HKEY_USERS\$UserSid")) { throw '原用户的注册表未加载，无法应用用户策略。' }
+    }
     $settings = @($script:TweakCatalog | Where-Object { $Full -or $_.recommended })
-    if ($MachineOnly) { $settings = @($settings | Where-Object { $_.path -like 'HKLM:*' }) }
+    if ($MachineOnly) { $settings = @($settings | Where-Object { $_.path -like 'HKLM:*' -or ($UserSid -and (Test-TweakRequiresElevation $_)) }) }
     if ($MachineOnly) { Write-Host '正在应用需要管理员权限的系统配置。' }
     else {
         Write-Host '将统一应用以下设置：'
@@ -148,13 +166,17 @@ function Invoke-SystemOptimization {
     if (-not (Confirm-Selection)) { return }
     if (-not $script:DryRunEnabled -and -not (Test-Administrator)) {
         Write-Status '系统优化需要管理员权限，请在 Windows 提示中允许执行。'
-        Invoke-ElevatedSetupTask 'OptimizeMachine' @{ Full = [bool]$Full }
-        foreach ($setting in @($settings | Where-Object { $_.path -like 'HKLM:*' })) { Write-Result $setting.name $true }
-        # 提升权限时可以使用另一管理员账户，当前用户的设置由原进程写入。
-        $settings = @($settings | Where-Object { $_.path -like 'HKCU:*' })
+        Invoke-ElevatedSetupTask 'OptimizeMachine' @{ Full = [bool]$Full; UserSid = (Get-SetupUserSid) }
+        foreach ($setting in @($settings | Where-Object { Test-TweakRequiresElevation $_ })) { Write-Result $setting.name $true }
+        $settings = @($settings | Where-Object { -not (Test-TweakRequiresElevation $_) })
     }
     foreach ($setting in $settings) {
         Write-Status $setting.name
+        if ($UserSid -and $setting.path -like 'HKCU:*') {
+            # 授权时可使用另一管理员账户，用户策略始终写入发起操作的原用户。
+            $setting = $setting | Select-Object *
+            $setting.path = "Registry::HKEY_USERS\$UserSid\" + $setting.path.Substring(6)
+        }
         Set-SystemTweak $setting
         Write-Result $setting.name $true
     }

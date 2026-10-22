@@ -70,17 +70,18 @@ try {
         $Yes = $true
         $script:UserSettings = @()
         function Test-Administrator { return $false }
+        function Get-SetupUserSid { return 'S-1-5-21-100-200-300-1001' }
         function Invoke-ElevatedSetupTask {
             param([string]$Operation, [hashtable]$Values)
-            if ($Operation -ne 'OptimizeMachine' -or $Values.Full) { throw '管理员进程的操作范围错误。' }
+            if ($Operation -ne 'OptimizeMachine' -or $Values.Full -or $Values.UserSid -ne 'S-1-5-21-100-200-300-1001') { throw '管理员进程的操作范围或原用户身份错误。' }
         }
         function Set-SystemTweak {
             param([object]$Setting)
-            if ($Setting.path -notlike 'HKCU:*') { throw '普通用户进程尝试修改系统范围的设置。' }
+            if ($Setting.path -notlike 'HKCU:*' -or (Test-TweakRequiresElevation $Setting)) { throw '普通用户进程尝试修改需要管理员权限的设置。' }
             $script:UserSettings += $Setting.id
         }
         Invoke-SystemOptimization 6>$null
-        if ($script:UserSettings.Count -ne 14 -or $script:Succeeded -ne 18) { throw '提升权限后的当前用户设置或结果统计错误。' }
+        if ($script:UserSettings.Count -ne 13 -or $script:Succeeded -ne 18) { throw '提升权限后的当前用户设置或结果统计错误。' }
     }
 
     & {

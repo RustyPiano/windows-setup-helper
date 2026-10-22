@@ -138,6 +138,7 @@ try {
             $output = @($worker.PowerShell.EndInvoke($worker.Handle))
             $messages = $worker.PowerShell.Streams.Information | Out-String
             if ($worker.PowerShell.HadErrors -or $messages -notmatch 'winget download' -or $output[-1].Failed -ne 0) { throw '后台任务没有传回操作记录和结果。' }
+            if ($messages -match '软件编号：|Microsoft.WindowsTerminal') { throw '后台初始化把软件清单混入了操作记录。' }
         }
         finally { $worker.PowerShell.Dispose() }
         $worker = Start-SetupWorker 'CopyIso' @{ Folder = $folder; Source = 'wrong.txt' }

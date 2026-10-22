@@ -66,7 +66,7 @@ $transcriptStarted = $false
 try {
     Start-Transcript -LiteralPath $request.LogFile -Force | Out-Null
     $transcriptStarted = $true
-    . (Join-Path $request.Root 'Start-DevSetup.ps1') -Action List -DryRun -Yes 6>$null
+    . (Join-Path $request.Root 'Start-DevSetup.ps1') -InitializeOnly -Yes
     $script:DryRunEnabled = $false
     $values = @{}
     foreach ($property in $request.Values.PSObject.Properties) { $values[$property.Name] = $property.Value }
@@ -175,7 +175,11 @@ function Invoke-SetupTask {
             Write-Status '安装包保存在 Software 中。下载成功不代表可以完全离线安装；请在目标电脑断网时验证安装包和依赖。联网下载器需要替换为厂商提供的完整安装包。'
         }
         'Optimize' { Invoke-SystemOptimization }
-        'OptimizeMachine' { Invoke-SystemOptimization -Full:$Values.Full -MachineOnly }
+        'OptimizeMachine' {
+            $parameters = @{ Full = [bool]$Values.Full; MachineOnly = $true }
+            if ($Values.ContainsKey('UserSid')) { $parameters.UserSid = $Values.UserSid }
+            Invoke-SystemOptimization @parameters
+        }
         'ActivationStatus' { Show-ActivationStatus }
         'Activate' { Start-Activation }
         'Mirrors' {
@@ -198,7 +202,7 @@ function Start-SetupWorker {
     $worker = [PowerShell]::Create()
     [void]$worker.AddScript({
         param($root, $operation, $values, $preview)
-        . (Join-Path $root 'Start-DevSetup.ps1') -Action List -DryRun -Yes 6>$null
+        . (Join-Path $root 'Start-DevSetup.ps1') -InitializeOnly -Yes
         $script:DryRunEnabled = $preview
         $completed = $false
         try {
