@@ -70,12 +70,9 @@ try {
         $Yes = $true
         $script:UserSettings = @()
         function Test-Administrator { return $false }
-        function Start-Process {
-            param([string]$FilePath, [string[]]$ArgumentList, [string]$Verb, [switch]$Wait, [switch]$PassThru)
-            if ($Verb -ne 'RunAs' -or $ArgumentList -notcontains '-MachineOnly' -or $ArgumentList -notcontains '-Yes' -or -not $Wait) {
-                throw '管理员进程的参数错误。'
-            }
-            return [pscustomobject]@{ ExitCode = 0 }
+        function Invoke-ElevatedSetupTask {
+            param([string]$Operation, [hashtable]$Values)
+            if ($Operation -ne 'OptimizeMachine' -or $Values.Full) { throw '管理员进程的操作范围错误。' }
         }
         function Set-SystemTweak {
             param([object]$Setting)

@@ -49,27 +49,49 @@ function Get-PreparationChecks {
 }
 
 function Invoke-ElevatedSetupTask {
-    param([ValidateSet('ExportDrivers', 'ImportDrivers', 'WingetMirror')][string]$Operation, [hashtable]$Values)
-    $request = @{ Operation = $Operation; Values = $Values; Root = $script:ProjectRoot } | ConvertTo-Json -Depth 5 -Compress
+    param([ValidateSet('ExportDrivers', 'ImportDrivers', 'WingetMirror', 'OptimizeMachine')][string]$Operation, [hashtable]$Values)
+    $base = if ($env:LOCALAPPDATA) { $env:LOCALAPPDATA } else { $HOME }
+    $logFolder = Join-Path $base 'WindowsSetupHelper/logs'
+    [void](New-Item -ItemType Directory -Path $logFolder -Force)
+    $logFile = Join-Path $logFolder ('administrator-' + [guid]::NewGuid().ToString('N') + '.log')
+    $errorFile = $logFile + '.error.txt'
+    $request = @{ Operation = $Operation; Values = $Values; Root = $script:ProjectRoot; LogFile = $logFile; ErrorFile = $errorFile } | ConvertTo-Json -Depth 5 -Compress
     $payload = [Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($request))
     $command = @'
 $ErrorActionPreference = 'Stop'
 $request = [Text.Encoding]::UTF8.GetString([Convert]::FromBase64String('__PAYLOAD__')) | ConvertFrom-Json
-. (Join-Path $request.Root 'Start-DevSetup.ps1') -Action List -DryRun -Yes 6>$null
-$script:DryRunEnabled = $false
-$values = @{}
-foreach ($property in $request.Values.PSObject.Properties) { $values[$property.Name] = $property.Value }
+$elevationFinished = $false
+$transcriptStarted = $false
 try {
+    Start-Transcript -LiteralPath $request.LogFile -Force | Out-Null
+    $transcriptStarted = $true
+    . (Join-Path $request.Root 'Start-DevSetup.ps1') -Action List -DryRun -Yes 6>$null
+    $script:DryRunEnabled = $false
+    $values = @{}
+    foreach ($property in $request.Values.PSObject.Properties) { $values[$property.Name] = $property.Value }
     Invoke-SetupTask $request.Operation $values
-    if ($script:Failed -gt 0) { exit 1 }
+    if ($script:Failed -gt 0) { throw '管理员操作报告失败，详细输出见管理员运行记录。' }
+    $elevationFinished = $true
 }
-finally { Save-Log }
+finally {
+    if (-not $elevationFinished -and $Error.Count -gt 0) {
+        $failure = $Error[0]
+        [IO.File]::WriteAllText($request.ErrorFile, $failure.Exception.Message, [Text.UTF8Encoding]::new($false))
+        Write-Host ($failure | Out-String)
+    }
+    if (Test-Path Function:Save-Log) { Save-Log }
+    if ($transcriptStarted) { Stop-Transcript | Out-Null }
+}
 '@
     $encoded = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command.Replace('__PAYLOAD__', $payload)))
     Write-Status '请在 Windows 授权窗口中允许操作；取消授权后可以重新尝试。'
-    $process = Start-Process -FilePath (Get-Process -Id $PID).Path -ArgumentList @('-NoProfile', '-EncodedCommand', $encoded) -Verb RunAs -Wait -PassThru
-    if ($process.ExitCode -ne 0) { throw "操作没有完成（退出代码 $($process.ExitCode)），请查看管理员窗口中的提示。" }
-    Write-Result '管理员操作' $true
+    Write-Status "管理员运行记录：$logFile"
+    $process = Start-Process -FilePath (Get-Process -Id $PID).Path -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', $encoded) -Verb RunAs -Wait -PassThru
+    if ($process.ExitCode -ne 0) {
+        $reason = if (Test-Path -LiteralPath $errorFile) { Get-Content -LiteralPath $errorFile -Raw -Encoding UTF8 } else { '管理员进程没有返回具体错误，请查看管理员运行记录。' }
+        throw "管理员操作未完成（退出代码 $($process.ExitCode)）：$reason`n管理员运行记录：$logFile"
+    }
+    if ($Operation -ne 'OptimizeMachine') { Write-Result '管理员操作' $true }
 }
 
 function Copy-PreparationFile {
@@ -81,7 +103,7 @@ function Copy-PreparationFile {
 
 function Invoke-SetupTask {
     param(
-        [ValidateSet('Computer', 'BackupFiles', 'ExportDrivers', 'ImportDrivers', 'CopyDrivers', 'CopyIso', 'VerifyIso', 'BootRufus', 'BootVentoy', 'CopyAssistant', 'CopyKit', 'CheckKit', 'Install', 'Download', 'Optimize', 'ActivationStatus', 'Activate', 'Mirrors', 'WingetMirror')]
+        [ValidateSet('Computer', 'BackupFiles', 'ExportDrivers', 'ImportDrivers', 'CopyDrivers', 'CopyIso', 'VerifyIso', 'BootRufus', 'BootVentoy', 'CopyAssistant', 'CopyKit', 'CheckKit', 'Install', 'Download', 'Optimize', 'OptimizeMachine', 'ActivationStatus', 'Activate', 'Mirrors', 'WingetMirror')]
         [string]$Operation,
         [hashtable]$Values = @{}
     )
@@ -147,6 +169,7 @@ function Invoke-SetupTask {
             Write-Status '安装包保存在 Software 中。下载成功不代表可以完全离线安装；请在目标电脑断网时验证安装包和依赖。联网下载器需要替换为厂商提供的完整安装包。'
         }
         'Optimize' { Invoke-SystemOptimization }
+        'OptimizeMachine' { Invoke-SystemOptimization -Full:$Values.Full -MachineOnly }
         'ActivationStatus' { Show-ActivationStatus }
         'Activate' { Start-Activation }
         'Mirrors' {

@@ -4,6 +4,8 @@ $root = Split-Path -Parent $PSScriptRoot
 $entry = Join-Path $root 'Start-DevSetup.ps1'
 $folder = Join-Path $root ('.work/desktop-tests-' + [guid]::NewGuid().ToString('N'))
 [void](New-Item -ItemType Directory -Path $folder -Force)
+$originalLocalAppData = $env:LOCALAPPDATA
+$env:LOCALAPPDATA = Join-Path $folder 'appdata'
 
 try {
     & {
@@ -79,7 +81,7 @@ try {
         $script:RequestedElevation = $null
         function Start-Process {
             param([string]$FilePath, [string[]]$ArgumentList, [string]$Verb, [switch]$Wait, [switch]$PassThru)
-            if ($Verb -ne 'RunAs' -or -not $Wait -or $ArgumentList -notcontains '-EncodedCommand') { throw '驱动操作没有请求管理员授权。' }
+            if ($Verb -ne 'RunAs' -or -not $Wait -or $ArgumentList -notcontains '-EncodedCommand' -or $ArgumentList -notcontains '-ExecutionPolicy' -or $ArgumentList -notcontains 'Bypass') { throw '驱动操作没有请求管理员授权或配置脚本执行方式。' }
             $command = [Text.Encoding]::Unicode.GetString([Convert]::FromBase64String($ArgumentList[-1]))
             $tokens = $null
             $errors = $null
@@ -209,4 +211,7 @@ try {
     else { Write-Host '当前系统不支持 Windows Forms，窗口测试未执行。' }
     Write-Host '桌面功能测试通过：离线检查、目标隔离、文件复制、安装目录、目标架构下载、后台结果及错误传播。'
 }
-finally { Remove-Item -LiteralPath $folder -Recurse -Force }
+finally {
+    $env:LOCALAPPDATA = $originalLocalAppData
+    Remove-Item -LiteralPath $folder -Recurse -Force
+}

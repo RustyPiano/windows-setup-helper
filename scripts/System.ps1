@@ -97,11 +97,7 @@ function Invoke-SystemOptimization {
     if (-not (Confirm-Selection)) { return }
     if (-not $script:DryRunEnabled -and -not (Test-Administrator)) {
         Write-Status '系统优化需要管理员权限，请在 Windows 提示中允许执行。'
-        $shell = (Get-Process -Id $PID).Path
-        $arguments = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ('"{0}"' -f (Join-Path $script:ProjectRoot 'Start-DevSetup.ps1')), '-Action', 'Optimize', '-Yes', '-MachineOnly')
-        if ($Full) { $arguments += '-FullOptimization' }
-        $process = Start-Process -FilePath $shell -ArgumentList $arguments -Verb RunAs -Wait -PassThru
-        if ($process.ExitCode -ne 0) { throw "管理员进程未完成系统配置，退出代码：$($process.ExitCode)。" }
+        Invoke-ElevatedSetupTask 'OptimizeMachine' @{ Full = [bool]$Full }
         foreach ($setting in @($settings | Where-Object { $_.path -like 'HKLM:*' })) { Write-Result $setting.name $true }
         # 提升权限时可以使用另一管理员账户，当前用户的设置由原进程写入。
         $settings = @($settings | Where-Object { $_.path -like 'HKCU:*' })
