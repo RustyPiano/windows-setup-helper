@@ -26,3 +26,6 @@ jobs:
       - name: Online startup
         shell: powershell
         run: .\tests\Online.Tests.ps1
+      - name: Official tool downloads
+        shell: powershell
+        run: .\tests\Downloads.Tests.ps1

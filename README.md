@@ -103,7 +103,7 @@ irm https://get.activated.win | iex
 .\tests\Bootstrap.Tests.ps1
 ```
 
-GitHub Actions 在 Windows PowerShell 5.1 与 PowerShell 7 上验证清单、预演、配置读写、日志、备份和启动流程。公开下载地址另由 `tests/Online.Tests.ps1` 验证。测试使用独立目录与命令样例，激活工具和启动盘写入均由测试替身验证调用。
+GitHub Actions 在 Windows PowerShell 5.1 与 PowerShell 7 上验证清单、预演、配置读写、日志、备份和启动流程。`tests/Online.Tests.ps1` 验证公开启动命令，`tests/Downloads.Tests.ps1` 实际下载三个官方工具并校验文件。测试使用独立目录，激活工具和启动盘写入均由测试替身验证调用。
 
 装机准备在 `scripts/Preparation.ps1`，安装后配置在 `scripts/System.ps1`，软件安装和镜像配置在 `Start-DevSetup.ps1`。
 
