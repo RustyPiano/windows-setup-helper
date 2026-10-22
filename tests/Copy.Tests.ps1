@@ -120,7 +120,18 @@ try {
             [IO.File]::WriteAllText((Join-Path $kit 'Software/added.txt'), 'added')
             Backup-UserFiles $kit $copiedKit -PreparationKit
             if ([IO.File]::ReadAllText((Join-Path $copiedKit 'partial.txt')) -ne 'complete-content' -or [IO.File]::ReadAllText((Join-Path $copiedKit 'keep.txt')) -ne 'preserve' -or -not (Test-Path (Join-Path $copiedKit 'Software/added.txt')) -or $script:Failed -ne 0) { throw '真实 Robocopy 没有补齐资料或保留用户文件。' }
-            Write-Host 'Windows Robocopy 验证通过。'
+            $lockedPath = Join-Path $copiedKit 'partial.txt'
+            [IO.File]::WriteAllText($lockedPath, 'locked')
+            $lockedFile = [IO.File]::Open($lockedPath, 'Open', 'ReadWrite', 'None')
+            try {
+                Backup-UserFiles $kit $copiedKit -PreparationKit
+                if ($script:Failed -ne 1) { throw '目标文件被占用时，真实 Robocopy 没有报告失败。' }
+            }
+            finally { $lockedFile.Dispose() }
+            $succeeded = $script:Succeeded
+            Backup-UserFiles $kit $copiedKit -PreparationKit
+            if ($script:Succeeded -ne $succeeded + 1 -or $script:Failed -ne 1 -or [IO.File]::ReadAllText($lockedPath) -ne 'complete-content') { throw '释放文件占用后没有成功重试复制。' }
+            Write-Host 'Windows Robocopy 验证通过：实际复制、保留其他文件、文件占用失败及原位置重试。'
         }
     }
     else { Write-Host '当前系统不支持 Robocopy，Windows 实际复制测试未执行。' }

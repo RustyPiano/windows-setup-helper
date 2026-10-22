@@ -162,10 +162,35 @@ try {
                 if ($node.Checked -or -not $nvm.Checked) { throw '冲突软件可以同时勾选。' }
                 $node.Checked = $true
                 if (-not $node.Checked -or $nvm.Checked) { throw '冲突软件反向切换失败。' }
+                $state.Tabs.SelectedIndex = 1
+                [Windows.Forms.Application]::DoEvents()
                 Set-DesktopStepState @{ Guide = 'prepare'; Index = 0 } '已核对'
-                Invoke-DesktopClick @{ Action = 'Next'; Context = 'prepare' }
-                Invoke-DesktopClick @{ Action = 'Previous'; Context = 'prepare' }
+                $state.Guides.prepare.Next.PerformClick()
+                if ($state.Guides.prepare.List.SelectedIndex -ne 1) { throw '下一步按钮没有切换步骤。' }
+                $state.Guides.prepare.Previous.PerformClick()
                 if ($state.Guides.prepare.States[0] -ne '已核对' -or $state.Guides.prepare.Title.Text -notmatch '已核对') { throw '切换步骤后丢失了完成状态。' }
+                foreach ($key in @('prepare', 'system')) {
+                    $state.Tabs.SelectedIndex = if ($key -eq 'prepare') { 1 } else { 2 }
+                    for ($i = 0; $i -lt $state.Guides[$key].Steps.Count; $i++) {
+                        $state.Guides[$key].List.SelectedIndex = $i
+                        [Windows.Forms.Application]::DoEvents()
+                        if ($state.Guides[$key].Actions.Controls.Count -ne $state.Guides[$key].Steps[$i].actions.Count -or $state.Guides[$key].Body.Text -notmatch [regex]::Escape($state.Guides[$key].Steps[$i].body.Split("`n")[0])) { throw '步骤切换后缺少说明或操作按钮。' }
+                    }
+                }
+                $state.Tabs.SelectedIndex = 1
+                $state.Guides.prepare.List.SelectedIndex = 2
+                $workerFolder = Join-Path $folder 'window-copy'
+                [void](New-Item -ItemType Directory -Path (Join-Path $workerFolder 'Images') -Force)
+                Start-DesktopOperation 'CopyIso' @{ Source = (Join-Path $folder 'sample.iso'); Folder = $workerFolder } @{ Guide = 'prepare'; Index = 2 }
+                if ($state.Tabs.Enabled) { throw '后台任务执行时仍允许重复提交。' }
+                $deadline = (Get-Date).AddSeconds(30)
+                while ($null -ne $state.Worker -and (Get-Date) -lt $deadline) { [Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 25 }
+                if ($null -ne $state.Worker -or -not $state.Tabs.Enabled -or $state.Guides.prepare.States[2] -ne '待核对' -or $state.Log.Text -notmatch '成功：保存系统镜像') { throw '窗口没有显示实际复制结果或恢复操作按钮。' }
+                if ((Get-FileHash (Join-Path $folder 'sample.iso')).Hash -ne (Get-FileHash (Join-Path $workerFolder 'Images/sample.iso')).Hash) { throw '窗口后台复制内容不一致。' }
+                Start-DesktopOperation 'CopyIso' @{ Source = 'wrong.txt'; Folder = $workerFolder } @{ Guide = 'prepare'; Index = 2 }
+                $deadline = (Get-Date).AddSeconds(30)
+                while ($null -ne $state.Worker -and (Get-Date) -lt $deadline) { [Windows.Forms.Application]::DoEvents(); Start-Sleep -Milliseconds 25 }
+                if ($null -ne $state.Worker -or -not $state.Tabs.Enabled -or $state.Guides.prepare.States[2] -ne '未完成' -or $state.Status.Text -notmatch 'ISO') { throw '窗口没有显示后台错误或恢复操作按钮。' }
                 function Confirm-DesktopAction { return $false }
                 function Start-SetupWorker { throw '取消确认后仍然开始安装。' }
                 Invoke-DesktopClick @{ Action = 'InstallSelected'; Context = 'developer' }
@@ -176,7 +201,7 @@ try {
             }
             finally { $state.Timer.Dispose(); $state.Form.Dispose() }
         }
-        Write-Host 'Windows 窗口测试通过：控件创建、目标选择、软件互斥、步骤状态和取消操作。'
+        Write-Host 'Windows 窗口测试通过：控件创建、目标选择、软件互斥、按钮点击、全部引导步骤、后台实际复制、错误恢复和取消操作。'
     }
     else { Write-Host '当前系统不支持 Windows Forms，窗口测试未执行。' }
     Write-Host '桌面功能测试通过：离线检查、目标隔离、文件复制、安装目录、目标架构下载、后台结果及错误传播。'

@@ -492,38 +492,38 @@ function New-SetupDesktop {
     $script:Desktop = @{ Form = $form; Tabs = $tabs; Status = $status; Log = $log; Progress = $progress; Timer = $timer; Worker = $null; Context = $null; Operation = ''; Guides = @{}; Packages = @{} }
     foreach ($control in @($heading, $tabs, $status, $progress, $log)) { $root.Controls.Add($control) }
     $form.Controls.Add($root)
-    $home = New-DesktopColumn
-    $home.Controls.Add((New-DesktopLabel '你想完成什么？'))
-    $home.Controls.Add((New-DesktopLabel '准备重装：先填写目标电脑，再按步骤准备文件、驱动和启动盘。'))
+    $startPage = New-DesktopColumn
+    $startPage.Controls.Add((New-DesktopLabel '你想完成什么？'))
+    $startPage.Controls.Add((New-DesktopLabel '准备重装：先填写目标电脑，再按步骤准备文件、驱动和启动盘。'))
     $target = New-Object Windows.Forms.ComboBox
     $target.DropDownStyle = 'DropDownList'
     $target.Width = 370
     $target.AccessibleName = '安装系统的目标电脑'
     $target.Items.AddRange(@('给正在使用的这台电脑重装', '给另一台电脑安装或重装'))
     $target.SelectedIndex = 0
-    $home.Controls.Add($target)
-    $home.Controls.Add((New-DesktopLabel '目标电脑品牌和完整型号（给另一台电脑准备时必填）'))
+    $startPage.Controls.Add($target)
+    $startPage.Controls.Add((New-DesktopLabel '目标电脑品牌和完整型号（给另一台电脑准备时必填）'))
     $model = New-Object Windows.Forms.TextBox
     $model.Dock = 'Top'
     $model.AccessibleName = '目标电脑品牌和型号'
-    $home.Controls.Add($model)
-    $home.Controls.Add((New-DesktopLabel '目标电脑的处理器类型：请在目标电脑“设置 → 系统 → 系统信息”中核对。'))
+    $startPage.Controls.Add($model)
+    $startPage.Controls.Add((New-DesktopLabel '目标电脑的处理器类型：请在目标电脑“设置 → 系统 → 系统信息”中核对。'))
     $architecture = New-Object Windows.Forms.ComboBox
     $architecture.DropDownStyle = 'DropDownList'
     $architecture.Width = 370
     $architecture.AccessibleName = '目标电脑处理器类型'
     $architecture.Items.AddRange(@('Intel / AMD 64 位（x64）', 'Arm 64 位（Arm64）'))
     $architecture.SelectedIndex = if ((Get-SetupArchitecture) -eq 'arm64') { 1 } else { 0 }
-    $home.Controls.Add($architecture)
-    $home.Controls.Add((New-DesktopLabel '目标电脑安装系统后的联网情况'))
+    $startPage.Controls.Add($architecture)
+    $startPage.Controls.Add((New-DesktopLabel '目标电脑安装系统后的联网情况'))
     $network = New-Object Windows.Forms.ComboBox
     $network.DropDownStyle = 'DropDownList'
     $network.Width = 370
     $network.AccessibleName = '目标电脑联网情况'
     $network.Items.AddRange(@('能够联网', '无法联网或不确定，需要提前准备驱动和安装包'))
     $network.SelectedIndex = 1
-    $home.Controls.Add($network)
-    $home.Controls.Add((New-DesktopLabel '准备目录：保存镜像、驱动、安装包和离线助手。请放在制作启动盘时不会被清除的设备上。'))
+    $startPage.Controls.Add($network)
+    $startPage.Controls.Add((New-DesktopLabel '准备目录：保存镜像、驱动、安装包和离线助手。请放在制作启动盘时不会被清除的设备上。'))
     $folderRow = New-DesktopFlow
     $folder = New-Object Windows.Forms.TextBox
     $folder.Width = 500
@@ -531,13 +531,13 @@ function New-SetupDesktop {
     $folder.AccessibleName = '准备资料的保存目录'
     $folderRow.Controls.Add($folder)
     $folderRow.Controls.Add((New-DesktopButton '选择准备目录' 'ChooseFolder'))
-    $home.Controls.Add($folderRow)
-    $home.Controls.Add((New-DesktopButton '开始准备重装' 'Prepare'))
-    $home.Controls.Add((New-DesktopLabel '系统已经装好：在目标电脑运行助手，安装驱动、检查更新并调整设置。'))
-    $home.Controls.Add((New-DesktopButton '配置当前电脑' 'GoSystem'))
-    $home.Controls.Add((New-DesktopLabel '只需要软件：勾选软件，选择安装到当前电脑或下载供另一台电脑使用。'))
-    $home.Controls.Add((New-DesktopButton '选择需要的软件' 'GoApps'))
-    $tabs.TabPages[0].Controls.Add($home)
+    $startPage.Controls.Add($folderRow)
+    $startPage.Controls.Add((New-DesktopButton '开始准备重装' 'Prepare'))
+    $startPage.Controls.Add((New-DesktopLabel '系统已经装好：在目标电脑运行助手，安装驱动、检查更新并调整设置。'))
+    $startPage.Controls.Add((New-DesktopButton '配置当前电脑' 'GoSystem'))
+    $startPage.Controls.Add((New-DesktopLabel '只需要软件：勾选软件，选择安装到当前电脑或下载供另一台电脑使用。'))
+    $startPage.Controls.Add((New-DesktopButton '选择需要的软件' 'GoApps'))
+    $tabs.TabPages[0].Controls.Add($startPage)
     $script:Desktop.TargetChoice = $target
     $script:Desktop.Model = $model
     $script:Desktop.Architecture = $architecture
