@@ -1,7 +1,7 @@
 & {
     Set-StrictMode -Version Latest
     $ErrorActionPreference = 'Stop'
-    $archiveUrl = 'https://github.com/RustyPiano/windows-setup-helper/archive/refs/heads/main.zip'
+    $archiveUrl = 'https://setup.rustypiano.com/windows-setup-helper.zip'
 
     if ($env:OS -ne 'Windows_NT') { throw 'Windows 装机助手仅支持 Windows。' }
     [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12

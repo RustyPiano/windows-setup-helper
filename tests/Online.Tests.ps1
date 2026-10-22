@@ -1,7 +1,7 @@
 ﻿Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $shell = (Get-Process -Id $PID).Path
-$output = @('5', '0') | & $shell -NoProfile -Command 'irm https://raw.githubusercontent.com/RustyPiano/windows-setup-helper/main/bootstrap.ps1 | iex'
+$output = @('5', '0') | & $shell -NoProfile -Command 'irm https://setup.rustypiano.com | iex'
 $output | Out-Host
 if ($LASTEXITCODE -ne 0) { throw '在线启动失败。' }
 if ([regex]::Matches(($output -join "`n"), '(?m)^\s*\d+\. \[').Count -ne 19) { throw '在线软件清单显示不完整。' }

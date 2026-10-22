@@ -7,10 +7,10 @@ Windows 装机助手，覆盖镜像下载、启动盘工具、文件与驱动备
 在 Windows PowerShell 中运行：
 
 ```powershell
-irm https://raw.githubusercontent.com/RustyPiano/windows-setup-helper/main/bootstrap.ps1 | iex
+irm https://setup.rustypiano.com | iex
 ```
 
-运行命令后会下载并打开 Windows 装机助手，退出时清理临时文件。系统镜像、工具和备份保存在用户选择的位置，日志保存在 `%LOCALAPPDATA%\WindowsSetupHelper\logs\`。
+运行命令后从同一域名下载并打开 Windows 装机助手，退出时清理临时文件。系统镜像、工具和备份保存在用户选择的位置，日志保存在 `%LOCALAPPDATA%\WindowsSetupHelper\logs\`。
 
 也可以下载仓库 ZIP 并解压，双击 `Launch.cmd`。以管理员身份运行终端可备份和安装驱动、修改 WinGet 源。
 
@@ -98,6 +98,12 @@ irm https://get.activated.win | iex
 
 ## 开发与测试
 
+先生成发布文件，再运行测试：
+
+```shell
+python3 scripts/build-hosting.py
+```
+
 ```powershell
 .\tests\Smoke.Tests.ps1
 .\tests\Behavior.Tests.ps1
@@ -106,9 +112,21 @@ irm https://get.activated.win | iex
 .\tests\Bootstrap.Tests.ps1
 ```
 
-GitHub Actions 在 Windows PowerShell 5.1 与 PowerShell 7 上验证清单、预演、配置读写、日志、备份、窗口选择和启动流程。`tests/Online.Tests.ps1` 验证公开启动命令，`tests/Downloads.Tests.ps1` 实际下载三个官方工具并校验文件。测试使用独立目录和样例程序验证调用，真实激活和启动盘写入由用户在工具中操作。
+GitHub Actions 在 Windows PowerShell 5.1 与 PowerShell 7 上验证清单、预演、配置读写、日志、备份、窗口选择、发布压缩包和启动流程。`tests/Online.Tests.ps1` 验证公开启动命令，在 Actions 页面手动运行工作流时执行；域名和托管生效后可运行此项。`tests/Downloads.Tests.ps1` 实际下载三个官方工具并校验文件。测试使用独立目录和样例程序验证调用，真实激活和启动盘写入由用户在工具中操作。
 
 装机准备在 `scripts/Preparation.ps1`，安装后配置在 `scripts/System.ps1`，软件安装和镜像配置在 `Start-DevSetup.ps1`。
+
+## Vercel 托管
+
+在 Vercel 导入 `RustyPiano/windows-setup-helper`，使用仓库根目录，生产分支选择 `main`。构建命令、发布目录、响应类型和缓存规则由根目录的 `vercel.json` 提供，控制台保留仓库配置即可。构建环境需要 Python 3，Vercel 已提供。
+
+`scripts/build-hosting.py` 在 `public` 中生成 `bootstrap.ps1` 和 `windows-setup-helper.zip`。压缩包包含主程序、功能脚本、软件清单、启动文件、说明和许可。`public` 是生成目录，不提交到 Git。
+
+在 Settings → Domains 添加 `setup.rustypiano.com`，到域名的 DNS 管理页面添加名称为 `setup` 的 CNAME 记录，目标填写 Vercel 显示的地址。等待域名和 HTTPS 验证通过，并确保正式域名允许匿名访问，无需登录或浏览器验证。
+
+关联仓库后，每次推送到 `main` 都会自动构建并更新正式域名；其他分支生成预览部署。构建脚本和 Vercel 配置随代码提交，后续无需逐次调整控制台。启动脚本和助手压缩包均由 Vercel 提供，软件安装包、系统镜像和第三方工具仍使用各自的下载地址。
+
+参考 [Vercel 仓库配置](https://vercel.com/docs/project-configuration/vercel-json)、[GitHub 自动部署](https://vercel.com/docs/git/vercel-for-github)和[域名配置](https://vercel.com/docs/domains/working-with-domains/add-a-domain)。
 
 ## 来源
 

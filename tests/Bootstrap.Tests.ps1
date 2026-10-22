@@ -10,12 +10,25 @@ if ($parseErrors.Count -gt 0) { throw ($parseErrors | Out-String) }
 
 $testFolder = Join-Path $root ('.work/bootstrap-tests-' + [guid]::NewGuid().ToString('N'))
 $payload = Join-Path $testFolder 'windows-setup-helper-main'
-[void](New-Item -ItemType Directory -Path (Join-Path $payload 'data') -Force)
-[void](New-Item -ItemType Directory -Path (Join-Path $payload 'scripts') -Force)
+Expand-Archive -LiteralPath (Join-Path $root 'public/windows-setup-helper.zip') -DestinationPath $testFolder
+$expectedFiles = @(
+    'Start-DevSetup.ps1', 'Launch.cmd', 'Launch-Online.cmd', 'README.md', 'LICENSE',
+    'scripts/Preparation.ps1', 'scripts/System.ps1',
+    'data/apps.json', 'data/packages.json', 'data/mirrors.json'
+)
+if (@(Get-ChildItem $payload -File -Recurse).Count -ne $expectedFiles.Count) { throw '发布压缩包包含多余文件或缺少文件。' }
+foreach ($name in $expectedFiles) {
+    if ((Get-FileHash (Join-Path $payload $name)).Hash -ne (Get-FileHash (Join-Path $root $name)).Hash) {
+        throw "发布文件与源文件不一致：$name"
+    }
+}
+if ((Get-FileHash (Join-Path $root 'public/bootstrap.ps1')).Hash -ne (Get-FileHash $bootstrap).Hash) {
+    throw '发布的启动脚本与源文件不一致。'
+}
+$shell = (Get-Process -Id $PID).Path
+$listOutput = & $shell -NoProfile -File (Join-Path $payload 'Start-DevSetup.ps1') -Action List -DryRun
+if ($LASTEXITCODE -ne 0 -or ($listOutput -join "`n") -notmatch 'Git.Git') { throw '压缩包中的助手无法独立显示软件清单。' }
 Copy-Item (Join-Path $PSScriptRoot 'fixtures/BootstrapEntry.ps1') (Join-Path $payload 'Start-DevSetup.ps1')
-Copy-Item (Join-Path $root 'data/*.json') (Join-Path $payload 'data')
-Copy-Item (Join-Path $root 'scripts/*.ps1') (Join-Path $payload 'scripts')
-Copy-Item (Join-Path $root 'Launch-Online.cmd') $payload
 $payloadArchive = Join-Path $testFolder 'payload.zip'
 Compress-Archive -Path $payload -DestinationPath $payloadArchive
 $originalLocalAppData = $env:LOCALAPPDATA
@@ -23,7 +36,7 @@ $originalOS = $env:OS
 $env:LOCALAPPDATA = Join-Path $testFolder 'appdata'
 $env:OS = 'Windows_NT'
 $env:WINDEVPICKER_TEST_BOOTSTRAP_MARKER = Join-Path $testFolder 'started.txt'
-$archiveUrl = 'https://github.com/RustyPiano/windows-setup-helper/archive/refs/heads/main.zip'
+$archiveUrl = 'https://setup.rustypiano.com/windows-setup-helper.zip'
 
 function Invoke-WebRequest {
     param([string]$Uri, [string]$OutFile, [switch]$UseBasicParsing, [int]$TimeoutSec)
@@ -56,7 +69,7 @@ try {
     }
     if (-not $failed) { throw '入口执行失败没有向调用者报告。' }
     if (@(Get-ChildItem (Join-Path $env:LOCALAPPDATA 'WindowsSetupHelper/downloads') -Directory).Count -ne 0) { throw '下载文件没有清理。' }
-    Write-Host '在线启动测试通过：完整下载后启动、下载失败终止、入口错误传播、下载文件清理。' -ForegroundColor Green
+    Write-Host '在线启动测试通过：发布文件完整、压缩包独立运行、完整下载后启动、下载失败终止、入口错误传播、下载文件清理。' -ForegroundColor Green
 }
 finally {
     $env:LOCALAPPDATA = $originalLocalAppData

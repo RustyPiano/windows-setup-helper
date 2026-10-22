@@ -4,3 +4,5 @@
 *.zip
 .DS_Store
 .work/
+public/
+.vercel/
