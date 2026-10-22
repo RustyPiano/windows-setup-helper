@@ -45,6 +45,8 @@ Node.js LTS（Long-Term Support，长期支持版）与 nvm for Windows（Node V
 
 系统配置保存在 [`data/tweaks.json`](../data/tweaks.json)，共 23 项。图形界面的“应用推荐设置”应用其中 18 项，具体内容见操作窗口和 README。
 
+小组件使用微软 LGPO 工具导入本地组策略，再执行计算机策略刷新并读取最终值。工具从 Microsoft Download Center 下载，压缩包和可执行文件均校验 SHA256，缓存在 `%LOCALAPPDATA%\WindowsSetupHelper\tools\lgpo\`。此操作保留现有注册表权限和 Windows 保护驱动。参见[微软本地组策略工具说明](https://learn.microsoft.com/windows/security/operating-system-security/device-management/windows-security-configuration-framework/security-compliance-toolkit-10)和[小组件策略](https://learn.microsoft.com/windows/client-management/mdm/policy-csp-newsandinterests#allownewsandinterests)。
+
 `-Action Optimize -FullOptimization` 还会启用 Sudo、开发者模式、远程桌面、关闭全部弹出通知和隐藏蓝牙图标。Sudo 需要系统提供 Windows Sudo；家庭版无法作为远程桌面被控端，远程桌面防火墙需要单独允许连接。部分设置需要重新登录或重启 Windows 后生效。
 
 “其他激活工具”在独立 PowerShell 窗口中执行以下命令，启动第三方 Microsoft Activation Scripts，由用户在其菜单中选择具体操作。退出后读取 Windows 激活状态。
@@ -89,6 +91,8 @@ python3 scripts/build-hosting.py
 .\tests\Menu.Tests.ps1
 .\tests\Desktop.Tests.ps1
 .\tests\Optimization.Tests.ps1
+.\tests\WidgetsPolicy.Tests.ps1
+.\tests\Elevation.Tests.ps1
 .\tests\Bootstrap.Tests.ps1
 ```
 
