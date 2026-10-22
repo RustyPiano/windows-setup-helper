@@ -68,7 +68,19 @@ try {
             $restore = Join-Path $folder 'restore.txt'
             [IO.File]::WriteAllText($restore, (@('Computer', 'SOFTWARE\Policies\Microsoft\Dsh', 'AllowNewsAndInterests', $previous, '') -join "`r`n"), [Text.Encoding]::Unicode)
             try {
-                Set-SystemTweak $setting
+                $worker = [PowerShell]::Create()
+                try {
+                    [void]$worker.AddScript({
+                        param($root)
+                        . (Join-Path $root 'Start-DevSetup.ps1') -Action List -DryRun -Yes 6>$null
+                        $script:DryRunEnabled = $false
+                        Set-SystemTweak ($script:TweakCatalog | Where-Object { $_.id -eq 'WidgetServiceOff' })
+                    }).AddArgument($root)
+                    [void]$worker.Invoke()
+                    foreach ($message in $worker.Streams.Information) { Write-Host ([string]$message.MessageData) }
+                    if ($worker.InvocationStateInfo.State -ne 'Completed' -or $worker.HadErrors) { throw ('后台小组件策略执行失败：' + ($worker.Streams.Error | Out-String)) }
+                }
+                finally { $worker.Dispose() }
                 $policyFile = Join-Path $env:SystemRoot 'System32/GroupPolicy/Machine/Registry.pol'
                 $parsed = Invoke-Tool $tool @('/parse', '/q', '/m', $policyFile) 6>&1 | Out-String
                 if ($parsed -notmatch 'Computer\s+SOFTWARE\\Policies\\Microsoft\\Dsh\s+AllowNewsAndInterests\s+DWORD:(0|0x0+)\b') { throw '本地组策略文件中没有保存小组件策略。' }
